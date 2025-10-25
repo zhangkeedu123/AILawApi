@@ -4,3 +4,5 @@
 
 /.vs/AILawApi/FileContentIndex
 /.vs
+__pycache__/
+*.pyc

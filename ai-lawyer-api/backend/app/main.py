@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
+from .db.db import init_pg_pool, close_pg_pool
+from .routers.chat_router import router as chat_router
 from .routers.client_router import router as client_router
 from .routers.case_router import router as case_router
 from .routers.contract_router import router as contract_router
@@ -20,7 +21,18 @@ app.add_middleware(
 @app.get("/")
 def root():
     return {"ok": True, "service": "AI Lawyer Backend"}
+# ✅ 启动时初始化 asyncpg 连接池
+@app.on_event("startup")
+async def on_startup():
+    await init_pg_pool()
 
+# ✅ 关闭时释放连接池
+@app.on_event("shutdown")
+async def on_shutdown():
+    await close_pg_pool()
+
+# ✅ 挂载新路由
+app.include_router(chat_router)
 # 注册路由
 app.include_router(client_router)
 app.include_router(case_router)

@@ -1,24 +1,30 @@
 from pydantic import BaseModel
 from typing import Optional
+from datetime import datetime
+
 
 class DocumentBase(BaseModel):
-    caseName: Optional[str] = None
-    docName: str
-    docType: Optional[str] = None
-    createDate: Optional[str] = None
-    status: Optional[str] = "草稿"
+    case_id: int
+    case_name: Optional[str] = None
+    doc_name: str
+    doc_type: Optional[str] = None
+    doc_content: Optional[str] = None
+
 
 class DocumentCreate(DocumentBase):
     pass
 
+
 class DocumentUpdate(BaseModel):
-    caseName: Optional[str] = None
-    docName: Optional[str] = None
-    docType: Optional[str] = None
-    createDate: Optional[str] = None
-    status: Optional[str] = None
+    case_id: Optional[int] = None
+    case_name: Optional[str] = None
+    doc_name: Optional[str] = None
+    doc_type: Optional[str] = None
+    doc_content: Optional[str] = None
+
 
 class DocumentRead(DocumentBase):
     id: int
+    created_at: Optional[datetime] = None
     class Config:
         from_attributes = True

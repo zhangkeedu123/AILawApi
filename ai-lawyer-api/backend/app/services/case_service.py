@@ -1,10 +1,10 @@
-from typing import Optional, Tuple, List
-from sqlalchemy.orm import Session
-from sqlalchemy import func
-from ..models.case_model import Case
+from typing import Optional, Tuple, List, Dict, Any
+from ..db.db import get_pg_pool
+from ..db.repositories import case_repo
 
-def list_cases_service(
-    db: Session,
+
+async def list_cases_service(
+    *,
     name: Optional[str] = None,
     status: Optional[str] = None,
     location: Optional[str] = None,
@@ -12,19 +12,44 @@ def list_cases_service(
     defendant: Optional[str] = None,
     page: int = 1,
     page_size: int = 20,
-) -> Tuple[List[Case], int]:
-    q = db.query(Case)
-    if name:
-        q = q.filter(Case.name.ilike(f"%{name}%"))
-    if status:
-        q = q.filter(Case.status == status)
-    if location:
-        q = q.filter(Case.location.ilike(f"%{location}%"))
-    if plaintiff:
-        q = q.filter(Case.plaintiff.ilike(f"%{plaintiff}%"))
-    if defendant:
-        q = q.filter(Case.defendant.ilike(f"%{defendant}%"))
-
-    total = db.query(func.count()).select_from(q.subquery()).scalar()
-    items = q.order_by(Case.id.desc()).offset((page - 1) * page_size).limit(page_size).all()
+) -> Tuple[List[Dict[str, Any]], int]:
+    pool = await get_pg_pool()
+    skip = (page - 1) * page_size
+    items = await case_repo.get_all(
+        pool,
+        skip=skip,
+        limit=page_size,
+        name=name,
+        status=status,
+        location=location,
+        plaintiff=plaintiff,
+        defendant=defendant,
+    )
+    total = await case_repo.count(
+        pool, name=name, status=status, location=location, plaintiff=plaintiff, defendant=defendant
+    )
     return items, total
+
+
+async def get_case_by_id(case_id: int) -> Optional[Dict[str, Any]]:
+    pool = await get_pg_pool()
+    return await case_repo.get_by_id(pool, case_id)
+
+
+async def create_case(data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    pool = await get_pg_pool()
+    new_id = await case_repo.create(pool, data)
+    return await case_repo.get_by_id(pool, new_id)
+
+
+async def update_case(case_id: int, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    pool = await get_pg_pool()
+    ok = await case_repo.update(pool, case_id, data)
+    if not ok:
+        return None
+    return await case_repo.get_by_id(pool, case_id)
+
+
+async def delete_case(case_id: int) -> bool:
+    pool = await get_pg_pool()
+    return await case_repo.delete(pool, case_id)

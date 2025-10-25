@@ -1,10 +1,10 @@
-from typing import Optional, Tuple, List
-from sqlalchemy.orm import Session
-from sqlalchemy import func
-from ..models.client_model import Client
+from typing import Optional, Tuple, List, Dict, Any
+from ..db.db import get_pg_pool
+from ..db.repositories import client_repo
 
-def list_clients_service(
-    db: Session,
+
+async def list_clients_service(
+    *,
     name: Optional[str] = None,
     type_: Optional[str] = None,
     status: Optional[str] = None,
@@ -12,25 +12,44 @@ def list_clients_service(
     email: Optional[str] = None,
     page: int = 1,
     page_size: int = 20,
-) -> Tuple[List[Client], int]:
-    q = db.query(Client)
-    if name:
-        q = q.filter(Client.name.ilike(f"%{name}%"))
-    if type_:
-        q = q.filter(Client.type == type_)
-    if status:
-        q = q.filter(Client.status == status)
-    if phone:
-        q = q.filter(Client.phone.ilike(f"%{phone}%"))
-    if email:
-        q = q.filter(Client.email.ilike(f"%{email}%"))
-
-    total = db.query(func.count(Client.id)).scalar() if q._distinct is None else q.count()
-    # 更稳妥：用一个不带limit/offset的副本做count
-    total = db.query(func.count()).select_from(q.subquery()).scalar() if q._limit is not None or q._offset is not None else db.query(func.count()).select_from(Client).filter(*q._criterion) if getattr(q, "_criterion", None) else db.query(func.count(Client.id)).scalar()
-
-    # 简洁且正确的方式：构造count子查询
-    total = db.query(func.count()).select_from(q.subquery()).scalar()
-
-    items = q.order_by(Client.id.desc()).offset((page - 1) * page_size).limit(page_size).all()
+) -> Tuple[List[Dict[str, Any]], int]:
+    pool = await get_pg_pool()
+    skip = (page - 1) * page_size
+    items = await client_repo.get_all(
+        pool,
+        skip=skip,
+        limit=page_size,
+        name=name,
+        type_=type_,
+        status=status,
+        phone=phone,
+        email=email,
+    )
+    total = await client_repo.count(
+        pool, name=name, type_=type_, status=status, phone=phone, email=email
+    )
     return items, total
+
+
+async def get_client_by_id(client_id: int) -> Optional[Dict[str, Any]]:
+    pool = await get_pg_pool()
+    return await client_repo.get_by_id(pool, client_id)
+
+
+async def create_client(data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    pool = await get_pg_pool()
+    new_id = await client_repo.create(pool, data)
+    return await client_repo.get_by_id(pool, new_id)
+
+
+async def update_client(client_id: int, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    pool = await get_pg_pool()
+    ok = await client_repo.update(pool, client_id, data)
+    if not ok:
+        return None
+    return await client_repo.get_by_id(pool, client_id)
+
+
+async def delete_client(client_id: int) -> bool:
+    pool = await get_pg_pool()
+    return await client_repo.delete(pool, client_id)

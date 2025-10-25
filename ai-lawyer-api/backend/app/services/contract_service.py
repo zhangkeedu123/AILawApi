@@ -1,10 +1,10 @@
-from typing import Optional, Tuple, List
-from sqlalchemy.orm import Session
-from sqlalchemy import func
-from ..models.contract_model import Contract
+from typing import Optional, Tuple, List, Dict, Any
+from ..db.db import get_pg_pool
+from ..db.repositories import contract_repo
 
-def list_contracts_service(
-    db: Session,
+
+async def list_contracts_service(
+    *,
     customer: Optional[str] = None,
     type_: Optional[str] = None,
     status: Optional[str] = None,
@@ -12,19 +12,49 @@ def list_contracts_service(
     upload_date_to: Optional[str] = None,
     page: int = 1,
     page_size: int = 20,
-) -> Tuple[List[Contract], int]:
-    q = db.query(Contract)
-    if customer:
-        q = q.filter(Contract.customer.ilike(f"%{customer}%"))
-    if type_:
-        q = q.filter(Contract.type == type_)
-    if status:
-        q = q.filter(Contract.status == status)
-    if upload_date_from:
-        q = q.filter(Contract.uploadDate >= upload_date_from)
-    if upload_date_to:
-        q = q.filter(Contract.uploadDate <= upload_date_to)
-
-    total = db.query(func.count()).select_from(q.subquery()).scalar()
-    items = q.order_by(Contract.id.desc()).offset((page - 1) * page_size).limit(page_size).all()
+) -> Tuple[List[Dict[str, Any]], int]:
+    pool = await get_pg_pool()
+    skip = (page - 1) * page_size
+    items = await contract_repo.get_all(
+        pool,
+        skip=skip,
+        limit=page_size,
+        customer=customer,
+        type_=type_,
+        status=status,
+        upload_date_from=upload_date_from,
+        upload_date_to=upload_date_to,
+    )
+    total = await contract_repo.count(
+        pool,
+        customer=customer,
+        type_=type_,
+        status=status,
+        upload_date_from=upload_date_from,
+        upload_date_to=upload_date_to,
+    )
     return items, total
+
+
+async def get_contract_by_id(contract_id: int) -> Optional[Dict[str, Any]]:
+    pool = await get_pg_pool()
+    return await contract_repo.get_by_id(pool, contract_id)
+
+
+async def create_contract(data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    pool = await get_pg_pool()
+    new_id = await contract_repo.create(pool, data)
+    return await contract_repo.get_by_id(pool, new_id)
+
+
+async def update_contract(contract_id: int, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    pool = await get_pg_pool()
+    ok = await contract_repo.update(pool, contract_id, data)
+    if not ok:
+        return None
+    return await contract_repo.get_by_id(pool, contract_id)
+
+
+async def delete_contract(contract_id: int) -> bool:
+    pool = await get_pg_pool()
+    return await contract_repo.delete(pool, contract_id)

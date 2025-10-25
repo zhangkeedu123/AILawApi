@@ -1,36 +1,27 @@
 from pydantic import BaseModel
 from typing import Optional
-from datetime import datetime
-
 
 class SpiderBase(BaseModel):
     name: str
     job: Optional[str] = None
     city: Optional[str] = None
-    co_size: Optional[str] = None
+    platform: Optional[str] = None
     phone: Optional[str] = None
-    status: int = 0
-    status_name: Optional[str] = "未联系"
-    remark: Optional[str] = None
-
+    status: Optional[str] = "未联�?
 
 class SpiderCreate(SpiderBase):
     pass
-
 
 class SpiderUpdate(BaseModel):
     name: Optional[str] = None
     job: Optional[str] = None
     city: Optional[str] = None
-    co_size: Optional[str] = None
+    platform: Optional[str] = None
     phone: Optional[str] = None
-    status: Optional[int] = None
-    status_name: Optional[str] = None
-    remark: Optional[str] = None
-
+    status: Optional[str] = None
 
 class SpiderRead(SpiderBase):
     id: int
-    created_at: Optional[datetime] = None
     class Config:
         from_attributes = True
+

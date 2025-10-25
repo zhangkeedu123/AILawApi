@@ -147,3 +147,29 @@ CREATE TABLE IF NOT EXISTS packages_user (
   money  DECIMAL(10,2)    DEFAULT 0,--支付金额
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+--回话历史记录组
+-- conversations & messages schema (PK1: BIGSERIAL)
+CREATE TABLE IF NOT EXISTS conversations (
+    id          BIGSERIAL PRIMARY KEY,
+    user_id     VARCHAR(128) NOT NULL,--用户ID
+    title       VARCHAR(256),--标题
+    is_active   BOOLEAN NOT NULL DEFAULT TRUE,--如果超出最大token ： false 不可再继续聊天
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_conversations_user ON conversations(user_id);
+
+
+CREATE TABLE IF NOT EXISTS messages (
+    id               BIGSERIAL PRIMARY KEY,
+    conversation_id  BIGINT ,
+    role             VARCHAR(32) ,     -- 'user' | 'assistant' | 'system'
+    content          TEXT ,
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
+

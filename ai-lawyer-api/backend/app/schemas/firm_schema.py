@@ -1,5 +1,7 @@
 from pydantic import BaseModel
 from typing import Optional
+from datetime import datetime
+
 
 class FirmBase(BaseModel):
     name: str
@@ -7,12 +9,14 @@ class FirmBase(BaseModel):
     phone: Optional[str] = None
     address: Optional[str] = None
     city: Optional[str] = None
-    status: Optional[str] = "active"
+    status: int = 0
+    status_name: Optional[str] = "未启用"
     employees: int = 0
-    package: Optional[str] = None
+
 
 class FirmCreate(FirmBase):
     pass
+
 
 class FirmUpdate(BaseModel):
     name: Optional[str] = None
@@ -20,11 +24,13 @@ class FirmUpdate(BaseModel):
     phone: Optional[str] = None
     address: Optional[str] = None
     city: Optional[str] = None
-    status: Optional[str] = None
+    status: Optional[int] = None
+    status_name: Optional[str] = None
     employees: Optional[int] = None
-    package: Optional[str] = None
+
 
 class FirmRead(FirmBase):
     id: int
+    created_at: Optional[datetime] = None
     class Config:
         from_attributes = True

@@ -1,27 +1,53 @@
-from typing import Optional, Tuple, List
-from sqlalchemy.orm import Session
-from sqlalchemy import func
-from ..models.document_model import Document
+from typing import Optional, Tuple, List, Dict, Any
+from ..db.db import get_pg_pool
+from ..db.repositories import document_repo
 
-def list_documents_service(
-    db: Session,
+
+async def list_documents_service(
+    *,
     doc_name: Optional[str] = None,
     case_name: Optional[str] = None,
     doc_type: Optional[str] = None,
     status: Optional[str] = None,
     page: int = 1,
     page_size: int = 20,
-) -> Tuple[List[Document], int]:
-    q = db.query(Document)
-    if doc_name:
-        q = q.filter(Document.docName.ilike(f"%{doc_name}%"))
-    if case_name:
-        q = q.filter(Document.caseName.ilike(f"%{case_name}%"))
-    if doc_type:
-        q = q.filter(Document.docType == doc_type)
-    if status:
-        q = q.filter(Document.status == status)
-
-    total = db.query(func.count()).select_from(q.subquery()).scalar()
-    items = q.order_by(Document.id.desc()).offset((page - 1) * page_size).limit(page_size).all()
+) -> Tuple[List[Dict[str, Any]], int]:
+    pool = await get_pg_pool()
+    skip = (page - 1) * page_size
+    items = await document_repo.get_all(
+        pool,
+        skip=skip,
+        limit=page_size,
+        doc_name=doc_name,
+        case_name=case_name,
+        doc_type=doc_type,
+        status=status,
+    )
+    total = await document_repo.count(
+        pool, doc_name=doc_name, case_name=case_name, doc_type=doc_type, status=status
+    )
     return items, total
+
+
+async def get_document_by_id(doc_id: int) -> Optional[Dict[str, Any]]:
+    pool = await get_pg_pool()
+    return await document_repo.get_by_id(pool, doc_id)
+
+
+async def create_document(data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    pool = await get_pg_pool()
+    new_id = await document_repo.create(pool, data)
+    return await document_repo.get_by_id(pool, new_id)
+
+
+async def update_document(doc_id: int, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    pool = await get_pg_pool()
+    ok = await document_repo.update(pool, doc_id, data)
+    if not ok:
+        return None
+    return await document_repo.get_by_id(pool, doc_id)
+
+
+async def delete_document(doc_id: int) -> bool:
+    pool = await get_pg_pool()
+    return await document_repo.delete(pool, doc_id)

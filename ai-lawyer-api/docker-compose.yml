@@ -21,6 +21,5 @@ services:
       - ./backend:/app
     command: >
       sh -c "
-      alembic upgrade head || alembic revision --autogenerate -m 'init' && alembic upgrade head;
       uvicorn app.main:app --host ${APP_HOST} --port ${APP_PORT} --reload
       "
