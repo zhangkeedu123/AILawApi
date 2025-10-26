@@ -15,6 +15,9 @@ services:
       APP_HOST: ${APP_HOST}
       APP_PORT: ${APP_PORT}
       APP_RELOAD: ${APP_RELOAD}
+      DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY}
+      DASHSCOPE_BASE_URL: ${DASHSCOPE_BASE_URL}
+      DEFAULT_MODEL: ${DEFAULT_MODEL}
     ports:
       - "8000:8000"
     volumes:
@@ -23,3 +26,6 @@ services:
       sh -c "
       uvicorn app.main:app --host ${APP_HOST} --port ${APP_PORT} --reload
       "
+    dns:
+      - 8.8.8.8
+      - 223.5.5.5

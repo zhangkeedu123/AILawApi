@@ -161,7 +161,7 @@ CREATE TABLE IF NOT EXISTS conversations (
 
 CREATE INDEX IF NOT EXISTS idx_conversations_user ON conversations(user_id);
 
-
+--消息
 CREATE TABLE IF NOT EXISTS messages (
     id               BIGSERIAL PRIMARY KEY,
     conversation_id  BIGINT ,
@@ -172,4 +172,16 @@ CREATE TABLE IF NOT EXISTS messages (
 
 CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id);
 CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
+
+
+-- 仅保存每个会话的一条摘要，覆盖更新
+CREATE TABLE IF NOT EXISTS conversation_summaries (
+  id  SERIAL PRIMARY KEY ,
+  conversation_id BIGINT ,
+  summary         TEXT ,
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_conversation_summaries_updated_at
+  ON conversation_summaries(updated_at DESC);
 
