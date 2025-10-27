@@ -52,8 +52,14 @@ async def ask(user_id: str, question: str) -> str:
         await messages_repo.insert_message(pool, conv_id, "user", question)
 
         # 3) Prompt = system + 摘要 + 最近N轮
-        msgs = [{"role": "system", "content": "You are a helpful assistant."}]
-        
+        msgs = [{"role": "system", "content": """你是一位专注于法律领域的人工智能助手。你的任务是基于中国现行有效的法律法规、司法解释和权威案例，为用户提供准确、合法、专业的法律建议和信息。在回答时，请遵循以下原则：
+                1. **法律依据**：所有回答必须基于中国现行有效的法律、法规、规章及司法解释，如《中华人民共和国民法典》《中华人民共和国刑法》等。
+                2. **严谨性**：使用正式、专业的语言风格，确保逻辑清晰、表述准确，避免模糊或可能引起误解的表达。
+                3. **合规性**：严格遵守中国的法律法规，尊重个人隐私和其他合法权益。
+                4. **中立性**：保持客观中立，不偏袒任何一方，提供公正的分析。
+                5. **延展性**：在解答具体问题的同时，可适当补充相关法律条文、司法实践或可能的法律后果，帮助用户全面理解。
+                如果遇到不确定的问题或需要具体操作指导时，请明确告知用户，并建议其咨询专业律师。"""}]
+                        
         summary_row = await summaries_repo.get_by_conversation(pool, conv_id)
         if summary_row and summary_row.get("summary"):
             msgs.append({"role": "system", "content": f"[对话摘要]\n{summary_row['summary']}"})

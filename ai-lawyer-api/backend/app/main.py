@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .db.db import init_pg_pool, close_pg_pool
 from .routers.chat_router import router as chat_router
+from .routers.conversations_router import router as conversations_router
 from .routers.client_router import router as client_router
 from .routers.case_router import router as case_router
 from .routers.contract_router import router as contract_router
@@ -9,6 +10,7 @@ from .routers.document_router import router as document_router
 from .routers.spider_router import router as spider_router
 from .routers.firm_router import router as firm_router
 from .routers.employee_router import router as employee_router
+from .schemas.response import ApiResponse
 
 app = FastAPI(title="AI Lawyer Backend", version="0.1.0")
 
@@ -18,9 +20,9 @@ app.add_middleware(
     allow_methods=["*"], allow_headers=["*"]
 )
 
-@app.get("/")
+@app.get("/", response_model=ApiResponse[dict])
 def root():
-    return {"ok": True, "service": "AI Lawyer Backend"}
+    return ApiResponse(result={"service": "AI Lawyer Backend"})
 # ✅ 启动时初始化 asyncpg 连接池
 @app.on_event("startup")
 async def on_startup():
@@ -33,6 +35,7 @@ async def on_shutdown():
 
 # ✅ 挂载新路由
 app.include_router(chat_router)
+app.include_router(conversations_router)
 # 注册路由
 app.include_router(client_router)
 app.include_router(case_router)

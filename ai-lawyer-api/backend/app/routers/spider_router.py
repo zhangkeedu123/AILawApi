@@ -3,11 +3,12 @@ from ..schemas.spider_schema import SpiderCreate, SpiderUpdate, SpiderRead
 from ..common.pagination import Paginated, PageMeta
 from ..common.params import PageParams
 from ..services import spider_service
+from ..schemas.response import ApiResponse
 
 router = APIRouter(prefix="/spider-customers", tags=["SpiderCustomer"])
 
 
-@router.get("/", response_model=Paginated[SpiderRead])
+@router.get("/", response_model=ApiResponse[Paginated[SpiderRead]])
 async def list_spider_customers(
     page_params: PageParams = Depends(),
     name: str | None = Query(None, description="姓名/公司(模糊)"),
@@ -19,35 +20,34 @@ async def list_spider_customers(
         name=name, city=city, platform=platform, status=status,
         page=page_params.page, page_size=page_params.page_size,
     )
-    return {"meta": PageMeta(total=total, page=page_params.page, page_size=page_params.page_size), "items": items}
+    return ApiResponse(result={"meta": PageMeta(total=total, page=page_params.page, page_size=page_params.page_size), "items": items})
 
 
-@router.get("/{item_id}", response_model=SpiderRead)
+@router.get("/{item_id}", response_model=ApiResponse[SpiderRead])
 async def get_spider_customer(item_id: int):
     obj = await spider_service.get_spider_customer_by_id(item_id)
     if not obj:
         raise HTTPException(404, "SpiderCustomer not found")
-    return obj
+    return ApiResponse(result=obj)
 
 
-@router.post("/", response_model=SpiderRead)
+@router.post("/", response_model=ApiResponse[SpiderRead])
 async def create_spider_customer(payload: SpiderCreate):
     obj = await spider_service.create_spider_customer(payload.model_dump())
-    return obj
+    return ApiResponse(result=obj)
 
 
-@router.put("/{item_id}", response_model=SpiderRead)
+@router.put("/{item_id}", response_model=ApiResponse[SpiderRead])
 async def update_spider_customer(item_id: int, payload: SpiderUpdate):
     obj = await spider_service.update_spider_customer(item_id, payload.model_dump(exclude_unset=True))
     if not obj:
         raise HTTPException(404, "SpiderCustomer not found")
-    return obj
+    return ApiResponse(result=obj)
 
 
-@router.delete("/{item_id}")
+@router.delete("/{item_id}", response_model=ApiResponse[bool])
 async def delete_spider_customer(item_id: int):
     ok = await spider_service.delete_spider_customer(item_id)
     if not ok:
         raise HTTPException(404, "SpiderCustomer not found")
-    return {"ok": True}
-
+    return ApiResponse(result=True)

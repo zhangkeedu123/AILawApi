@@ -51,3 +51,42 @@ async def get_all_except_last(pool: asyncpg.Pool, conversation_id: int, last_n: 
     async with pool.acquire() as conn:
         rows = await conn.fetch(sql, conversation_id, cut)
         return [dict(r) for r in rows]
+
+
+async def get_by_conversation(
+    pool: asyncpg.Pool,
+    conversation_id: int,
+    *,
+    skip: int = 0,
+    limit: int = 20,
+    asc: bool = True,
+) -> List[Dict[str, Any]]:
+    order = "ASC" if asc else "DESC"
+    sql = f"""
+    SELECT id, conversation_id, role, content, created_at
+    FROM messages
+    WHERE conversation_id=$1
+    ORDER BY id {order}
+    OFFSET $2 LIMIT $3;
+    """
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(sql, conversation_id, skip, limit)
+        return [dict(r) for r in rows]
+
+
+async def get_all_by_conversation(
+    pool: asyncpg.Pool,
+    conversation_id: int,
+    *,
+    asc: bool = True,
+) -> List[Dict[str, Any]]:
+    order = "ASC" if asc else "DESC"
+    sql = f"""
+    SELECT id, conversation_id, role, content, created_at
+    FROM messages
+    WHERE conversation_id=$1
+    ORDER BY id {order};
+    """
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(sql, conversation_id)
+        return [dict(r) for r in rows]

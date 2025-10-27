@@ -3,11 +3,12 @@ from ..schemas.employee_schema import EmployeeCreate, EmployeeUpdate, EmployeeRe
 from ..common.pagination import Paginated, PageMeta
 from ..common.params import PageParams
 from ..services import employee_service
+from ..schemas.response import ApiResponse
 
 router = APIRouter(prefix="/employees", tags=["Employee"])
 
 
-@router.get("/", response_model=Paginated[EmployeeRead])
+@router.get("/", response_model=ApiResponse[Paginated[EmployeeRead]])
 async def list_employees(
     page_params: PageParams = Depends(),
     name: str | None = Query(None, description="姓名(模糊)"),
@@ -19,35 +20,34 @@ async def list_employees(
         name=name, title=title, firm_name=firm_name, status=status,
         page=page_params.page, page_size=page_params.page_size,
     )
-    return {"meta": PageMeta(total=total, page=page_params.page, page_size=page_params.page_size), "items": items}
+    return ApiResponse(result={"meta": PageMeta(total=total, page=page_params.page, page_size=page_params.page_size), "items": items})
 
 
-@router.get("/{emp_id}", response_model=EmployeeRead)
+@router.get("/{emp_id}", response_model=ApiResponse[EmployeeRead])
 async def get_employee(emp_id: int):
     obj = await employee_service.get_employee_by_id(emp_id)
     if not obj:
         raise HTTPException(404, "Employee not found")
-    return obj
+    return ApiResponse(result=obj)
 
 
-@router.post("/", response_model=EmployeeRead)
+@router.post("/", response_model=ApiResponse[EmployeeRead])
 async def create_employee(payload: EmployeeCreate):
     obj = await employee_service.create_employee(payload.model_dump())
-    return obj
+    return ApiResponse(result=obj)
 
 
-@router.put("/{emp_id}", response_model=EmployeeRead)
+@router.put("/{emp_id}", response_model=ApiResponse[EmployeeRead])
 async def update_employee(emp_id: int, payload: EmployeeUpdate):
     obj = await employee_service.update_employee(emp_id, payload.model_dump(exclude_unset=True))
     if not obj:
         raise HTTPException(404, "Employee not found")
-    return obj
+    return ApiResponse(result=obj)
 
 
-@router.delete("/{emp_id}")
+@router.delete("/{emp_id}", response_model=ApiResponse[bool])
 async def delete_employee(emp_id: int):
     ok = await employee_service.delete_employee(emp_id)
     if not ok:
         raise HTTPException(404, "Employee not found")
-    return {"ok": True}
-
+    return ApiResponse(result=True)

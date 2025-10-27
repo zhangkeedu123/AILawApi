@@ -3,11 +3,12 @@ from ..schemas.contract_schema import ContractCreate, ContractUpdate, ContractRe
 from ..common.pagination import Paginated, PageMeta
 from ..common.params import PageParams
 from ..services import contract_service
+from ..schemas.response import ApiResponse
 
 router = APIRouter(prefix="/contracts", tags=["Contract"])
 
 
-@router.get("/", response_model=Paginated[ContractRead])
+@router.get("/", response_model=ApiResponse[Paginated[ContractRead]])
 async def list_contracts(
     page_params: PageParams = Depends(),
     customer: str | None = Query(None, description="客户名称(模糊)"),
@@ -21,35 +22,34 @@ async def list_contracts(
         upload_date_from=upload_date_from, upload_date_to=upload_date_to,
         page=page_params.page, page_size=page_params.page_size,
     )
-    return {"meta": PageMeta(total=total, page=page_params.page, page_size=page_params.page_size), "items": items}
+    return ApiResponse(result={"meta": PageMeta(total=total, page=page_params.page, page_size=page_params.page_size), "items": items})
 
 
-@router.get("/{contract_id}", response_model=ContractRead)
+@router.get("/{contract_id}", response_model=ApiResponse[ContractRead])
 async def get_contract(contract_id: int):
     obj = await contract_service.get_contract_by_id(contract_id)
     if not obj:
         raise HTTPException(404, "Contract not found")
-    return obj
+    return ApiResponse(result=obj)
 
 
-@router.post("/", response_model=ContractRead)
+@router.post("/", response_model=ApiResponse[ContractRead])
 async def create_contract(payload: ContractCreate):
     obj = await contract_service.create_contract(payload.model_dump())
-    return obj
+    return ApiResponse(result=obj)
 
 
-@router.put("/{contract_id}", response_model=ContractRead)
+@router.put("/{contract_id}", response_model=ApiResponse[ContractRead])
 async def update_contract(contract_id: int, payload: ContractUpdate):
     obj = await contract_service.update_contract(contract_id, payload.model_dump(exclude_unset=True))
     if not obj:
         raise HTTPException(404, "Contract not found")
-    return obj
+    return ApiResponse(result=obj)
 
 
-@router.delete("/{contract_id}")
+@router.delete("/{contract_id}", response_model=ApiResponse[bool])
 async def delete_contract(contract_id: int):
     ok = await contract_service.delete_contract(contract_id)
     if not ok:
         raise HTTPException(404, "Contract not found")
-    return {"ok": True}
-
+    return ApiResponse(result=True)
