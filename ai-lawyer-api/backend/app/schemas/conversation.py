@@ -3,7 +3,6 @@ from typing import Optional
 from datetime import datetime
 
 class ChatRequest(BaseModel):
-    user_id: str
     question: str
 
 class ChatResponse(BaseModel):
@@ -12,7 +11,7 @@ class ChatResponse(BaseModel):
 
 class ConversationRead(BaseModel):
     id: int
-    user_id: str
+    user_id: int
     title: Optional[str] = None
     is_active: bool
     created_at: datetime

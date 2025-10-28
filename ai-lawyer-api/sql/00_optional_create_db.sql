@@ -123,6 +123,9 @@ CREATE TABLE IF NOT EXISTS employees (
   update_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 唯一索引：手机号唯一
+CREATE UNIQUE INDEX IF NOT EXISTS uq_employees_phone ON employees(phone);
+
 --套餐表
 CREATE TABLE IF NOT EXISTS packages (
   id SERIAL PRIMARY KEY,
@@ -152,7 +155,7 @@ CREATE TABLE IF NOT EXISTS packages_user (
 -- conversations & messages schema (PK1: BIGSERIAL)
 CREATE TABLE IF NOT EXISTS conversations (
     id          BIGSERIAL PRIMARY KEY,
-    user_id     VARCHAR(128) NOT NULL,--用户ID
+    user_id     INT NOT NULL,--用户ID
     title       VARCHAR(256),--标题
     is_active   BOOLEAN NOT NULL DEFAULT TRUE,--如果超出最大token ： false 不可再继续聊天
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),

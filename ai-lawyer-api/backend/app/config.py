@@ -20,8 +20,8 @@ class Settings(BaseModel):
     
     # Memory / context
     recent_rounds: int = 10               # 最近N轮注入上下文（不删历史）
-    max_context_tokens: int = 8000        # 目标上下文上限（可按实际模型设置）
+    max_context_tokens: int = 8000        # 目标上下文上限（可按实际模型设置�?
     summary_trigger_ratio: float = 0.7    # 70%
-    summary_remind_after: int = 3         # T1：摘要>=3次提醒新建会话
+    summary_remind_after: int = 3         # T1：摘�?=3次提醒新建会�?
     
 settings = Settings()

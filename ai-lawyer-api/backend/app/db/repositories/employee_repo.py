@@ -128,3 +128,19 @@ async def delete(pool: asyncpg.Pool, id: int) -> bool:
     async with pool.acquire() as conn:
         res = await conn.execute(sql, id)
         return res.upper().startswith("DELETE")
+
+
+# Auth-related helpers
+async def get_by_phone(pool: asyncpg.Pool, phone: str) -> Optional[Dict[str, Any]]:
+    cols = ", ".join(SELECT_COLUMNS)
+    sql = f"SELECT {cols} FROM {TABLE} WHERE phone=$1;"
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(sql, phone)
+        return dict(row) if row else None
+
+
+async def update_token(pool: asyncpg.Pool, emp_id: int, token_hash: str) -> bool:
+    sql = f"UPDATE {TABLE} SET token=$1 WHERE id=$2;"
+    async with pool.acquire() as conn:
+        res = await conn.execute(sql, token_hash, emp_id)
+        return res.upper().startswith("UPDATE")

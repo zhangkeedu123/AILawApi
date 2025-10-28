@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Query, Depends, HTTPException
+from fastapi import APIRouter, Query, HTTPException, Request, Depends
 
 from ..db.db import get_pg_pool
 from ..db.repositories import conversations_repo, messages_repo
@@ -13,11 +13,12 @@ router = APIRouter(prefix="/conversations", tags=["Conversations"])
 
 @router.get("/active", response_model=ApiResponse[Paginated[ConversationRead]])
 async def list_active_conversations(
-    user_id: str = Query(..., description="用户ID"),
+    request: Request,
     page_params: PageParams = Depends(),
 ) -> ApiResponse[Paginated[ConversationRead]]:
     pool = await get_pg_pool()
-    rows = await conversations_repo.get_active_by_user(pool, user_id)
+    user = getattr(request.state, "current_user", None)
+    rows = await conversations_repo.get_active_by_user(pool, int(user["id"]))
 
     total = len(rows)
     start = (page_params.page - 1) * page_params.page_size
@@ -31,14 +32,14 @@ async def list_active_conversations(
 
 
 @router.get("/{conversation_id}/messages", response_model=ApiResponse[list[MessageRead]])
-async def list_messages(conversation_id: int) -> ApiResponse[list[MessageRead]]:
+async def list_messages(conversation_id: int, request: Request) -> ApiResponse[list[MessageRead]]:
     pool = await get_pg_pool()
     rows = await messages_repo.get_all_by_conversation(pool, conversation_id, asc=True)
     return ApiResponse(result=rows)
 
 
 @router.delete("/{conversation_id}", response_model=ApiResponse[bool])
-async def delete_conversation(conversation_id: int) -> ApiResponse[bool]:
+async def delete_conversation(conversation_id: int, request: Request) -> ApiResponse[bool]:
     pool = await get_pg_pool()
     ok = await conversations_repo.delete_with_messages(pool, conversation_id)
     if not ok:
@@ -47,7 +48,7 @@ async def delete_conversation(conversation_id: int) -> ApiResponse[bool]:
 
 
 @router.put("/{conversation_id}/title", response_model=ApiResponse[ConversationRead])
-async def rename_conversation(conversation_id: int, payload: ConversationRename) -> ApiResponse[ConversationRead]:
+async def rename_conversation(conversation_id: int, payload: ConversationRename, request: Request) -> ApiResponse[ConversationRead]:
     pool = await get_pg_pool()
     updated = await conversations_repo.rename(pool, conversation_id, payload.title)
     if not updated:

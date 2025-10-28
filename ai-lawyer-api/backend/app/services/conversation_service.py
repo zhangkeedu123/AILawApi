@@ -37,19 +37,20 @@ async def _should_trigger_summary(pool, conversation_id: int) -> bool:
     token_count = _estimate_tokens(msgs)
     return token_count > settings.max_context_tokens * settings.summary_trigger_ratio
 
-async def ask(user_id: str, question: str) -> str:
+async def ask(user_id: int, question: str) -> str:
     pool = await get_pg_pool()
 
-    # 1) 获取活跃对话，没有则创建
-    conv = await conversations_repo.get_active_by_user(pool, user_id)
-    if not conv:
+    # 1) 获取活跃对话（按 id DESC），若无则创建
+    conv_rows = await conversations_repo.get_active_by_user(pool, user_id)
+    if conv_rows:
+        conv = conv_rows[0]
+    else:
         conv = await conversations_repo.create(pool, user_id, None)
     conv_id = int(conv["id"])
 
     lock = _lock_for(conv_id)
     async with lock:
-        # 2) 记录用户消息
-        await messages_repo.insert_message(pool, conv_id, "user", question)
+        
 
         # 3) Prompt = system + 摘要 + 最近N轮
         msgs = [{"role": "system", "content": """你是一位专注于法律领域的人工智能助手。你的任务是基于中国现行有效的法律法规、司法解释和权威案例，为用户提供准确、合法、专业的法律建议和信息。在回答时，请遵循以下原则：
@@ -70,6 +71,8 @@ async def ask(user_id: str, question: str) -> str:
         # 4) 调用 AI（主链路）
         reply = await qwen_client.chat(msgs)
 
+        # 2) 记录用户消息
+        await messages_repo.insert_message(pool, conv_id, "user", question)
         # 5) 记录助手回复
         await messages_repo.insert_message(pool, conv_id, "assistant", reply)
 

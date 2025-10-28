@@ -1,7 +1,7 @@
 from typing import Optional, Dict, Any, List
 import asyncpg
 
-async def get_active_by_user(pool: asyncpg.Pool, user_id: str) -> List[Dict[str, Any]]:
+async def get_active_by_user(pool: asyncpg.Pool, user_id: int) -> List[Dict[str, Any]]:
     sql = """
     SELECT id, user_id, title, is_active, created_at, updated_at
     FROM conversations
@@ -12,7 +12,7 @@ async def get_active_by_user(pool: asyncpg.Pool, user_id: str) -> List[Dict[str,
         row = await conn.fetch(sql, user_id)
         return [dict(r) for r in row] 
 
-async def create(pool: asyncpg.Pool, user_id: str, title: Optional[str] = None) -> Dict[str, Any]:
+async def create(pool: asyncpg.Pool, user_id: int, title: Optional[str] = None) -> Dict[str, Any]:
     sql = """
     INSERT INTO conversations (user_id, title, is_active)
     VALUES ($1, $2, TRUE)
