@@ -31,9 +31,10 @@ CREATE TABLE IF NOT EXISTS cases (
 --文件表
 CREATE TABLE IF NOT EXISTS files (
   id SERIAL PRIMARY KEY,
-  p_id INT ,--关联ID
+  user_id INT ,--创建用户ID
   name VARCHAR(200) NOT NULL,--文件名称
   doc_url VARCHAR(200) NOT NULL,--文件路径
+  content text, --文本内容
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
