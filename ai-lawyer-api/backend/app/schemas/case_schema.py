@@ -10,6 +10,7 @@ class CaseBase(BaseModel):
     location: Optional[str] = None
     status: int = 0
     status_name: Optional[str] = "未受理"
+    files: Optional[str] = None
     claims: Optional[str] = None
     facts: Optional[str] = None
 
@@ -25,6 +26,7 @@ class CaseUpdate(BaseModel):
     location: Optional[str] = None
     status: Optional[int] = None
     status_name: Optional[str] = None
+    files: Optional[str] = None
     claims: Optional[str] = None
     facts: Optional[str] = None
 
@@ -34,3 +36,12 @@ class CaseRead(CaseBase):
     created_at: Optional[datetime] = None
     class Config:
         from_attributes = True
+
+
+class CaseExtractResult(BaseModel):
+    """AI提取的案件关键信息（严格字符串，默认为空字符串）"""
+    name: str = ""
+    plaintiff: str = ""
+    defendant: str = ""
+    claims: str = ""
+    facts: str = ""

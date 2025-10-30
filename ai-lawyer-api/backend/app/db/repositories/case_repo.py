@@ -11,6 +11,7 @@ SELECT_COLUMNS = [
     "location",
     "status",
     "status_name",
+    "files",
     "claims",
     "facts",
     "created_at",

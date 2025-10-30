@@ -41,6 +41,8 @@ def _should_extract_text(upload: UploadFile) -> bool:
     return False
 
 
+
+
 @router.get("/", response_model=ApiResponse[Paginated[FileRead]])
 async def list_files(
     page_params: PageParams = Depends(),
@@ -111,6 +113,38 @@ async def upload_file(
     return ApiResponse(result=obj)
 
 
+@router.post("/extract", response_model=ApiResponse[str])
+async def extract_file_content(
+    upload: UploadFile = File(..., description="上传待识别内容的文件（docx/pdf/txt）"),
+    user: dict = Depends(get_current_user),
+):
+    """识别上传文件内容（不落盘不入库），直接返回文本。
+    - 支持：.docx、.pdf、文本类（txt/csv/md/json 等）
+    - 不支持：图片、加密 PDF、复杂版式可能效果一般
+    """
+    if not upload.filename:
+        raise HTTPException(400, "缺少文件名")
+
+    data = await upload.read()
+    if not data:
+        raise HTTPException(400, "空文件")
+
+    try:
+        text = files_service.extract_file_text(
+            data=data,
+            filename=upload.filename,
+            content_type=upload.content_type,
+        )
+    except files_service.UnsupportedFileType as e:
+        return ApiResponse(msg="暂不支持的文件类型",status=False)
+    except files_service.DependencyMissing as e:
+        return ApiResponse(msg="缺少依赖",status=False)
+    except files_service.FileExtractError as e:
+        return ApiResponse(msg="解析失败",status=False)
+
+    return ApiResponse(result=text)
+
+
 @router.put("/{file_id}", response_model=ApiResponse[FileRead])
 async def update_file(file_id: int, payload: FileUpdate, user: dict = Depends(get_current_user)):
     obj = await files_service.get_file_by_id(file_id)
@@ -143,4 +177,3 @@ async def delete_file(file_id: int, user: dict = Depends(get_current_user)):
     if not ok:
         raise HTTPException(404, "File not found")
     return ApiResponse(result=True)
-

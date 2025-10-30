@@ -18,13 +18,14 @@ CREATE TABLE IF NOT EXISTS clients (
 CREATE TABLE IF NOT EXISTS cases (
   id SERIAL PRIMARY KEY,
   name VARCHAR(200) NOT NULL,--案件名称
-  plaintiff VARCHAR(200),--原告
-  defendant VARCHAR(200),--被告
+  plaintiff VARCHAR(500),--原告
+  defendant VARCHAR(500),--被告
   location VARCHAR(200),--法院地址
   status INT DEFAULT 0,--状态 0未受理 1已受理，3.已结案
   status_name VARCHAR(50) DEFAULT '未受理',
+  files VARCHAR(2000),--相关文件
   claims VARCHAR(2000),--诉讼请求
-  facts VARCHAR(4000),--事实与理由
+  facts TEXT,--事实与理由
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
