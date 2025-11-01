@@ -5,11 +5,9 @@ from ..db.repositories import contract_repo
 
 async def list_contracts_service(
     *,
-    customer: Optional[str] = None,
+    contract_name: Optional[str] = None,
     type_: Optional[str] = None,
-    status: Optional[str] = None,
-    upload_date_from: Optional[str] = None,  # 'YYYY-MM-DD'
-    upload_date_to: Optional[str] = None,
+    hasrisk: Optional[str] = None,
     page: int = 1,
     page_size: int = 20,
 ) -> Tuple[List[Dict[str, Any]], int]:
@@ -19,19 +17,15 @@ async def list_contracts_service(
         pool,
         skip=skip,
         limit=page_size,
-        customer=customer,
+        contract_name=contract_name,
         type_=type_,
-        status=status,
-        upload_date_from=upload_date_from,
-        upload_date_to=upload_date_to,
+        hasrisk=hasrisk,
     )
     total = await contract_repo.count(
         pool,
-        customer=customer,
+        contract_name=contract_name,
         type_=type_,
-        status=status,
-        upload_date_from=upload_date_from,
-        upload_date_to=upload_date_to,
+        hasrisk=hasrisk,
     )
     return items, total
 

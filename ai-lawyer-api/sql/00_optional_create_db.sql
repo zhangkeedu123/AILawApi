@@ -44,10 +44,11 @@ CREATE TABLE IF NOT EXISTS contracts (
   id SERIAL PRIMARY KEY,
   contract_name VARCHAR(200) ,--合同名称
   type VARCHAR(100),--合同类型
-  hasRisk boolean DEFAULT false ,--是否有风险
+  hasrisk VARCHAR(50) ,--是否有风险
   high_risk INT DEFAULT 0,--高风险 
   medium_risk INT DEFAULT 0,--中风险 
   low_risk INT DEFAULT 0,--低风险
+  files VARCHAR(200) ,--文件地址
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

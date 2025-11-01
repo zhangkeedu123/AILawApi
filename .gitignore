@@ -6,3 +6,4 @@
 /.vs
 __pycache__/
 *.pyc
+/ai-lawyer-api/backend/files/

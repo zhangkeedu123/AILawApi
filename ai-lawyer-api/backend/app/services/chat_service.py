@@ -81,3 +81,71 @@ async def analyze_case_ai(text: str) -> str:
         {"role": "user", "content": text},
     ]
     return await qwen_client.chat(messages)
+
+
+def _extract_json_block(s: str) -> str:
+    """尽力从回复中提取第一个完整的 JSON 对象字符串；失败则原样返回。"""
+    try:
+        # 快速路径：本身即为 JSON
+        json.loads(s)
+        return s
+    except Exception:
+        pass
+    try:
+        start = s.find("{")
+        end = s.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            return s[start : end + 1]
+    except Exception:
+        pass
+    return s
+
+
+async def analyze_contract_ai(text: str) -> str:
+    """合同审查：根据固定系统提示词，输出严格 JSON 结构的审查结果。"""
+    system_prompt = (
+        "你是一名资深律师助理和合同审查专家，熟悉中国《民法典》《劳动合同法》《公司法》《数据安全法》等法律法规。\n"
+        "请仔细审查以下合同文本，从法律合规性、履约风险、财务风险、保密风险、争议条款等方面全面分析。\n\n"
+        "要求：\n"
+        "1. 全面识别合同中存在的潜在法律风险与条款隐患；\n"
+        "2. 为每个风险条款提供修改建议与法律依据；\n"
+        "3. 评估每个条款的风险等级（高/中/低）；\n"
+        "4. 最终以 JSON 格式输出结果。\n\n"
+        "输出 JSON 格式如下（严格遵守结构与字段命名）：\n\n"
+        "{\n"
+        "  \"contract_overview\": {\n"
+        "    \"contract_type\": \"（自动判断合同类型，如劳动合同、技术服务合同等）\",\n"
+        "    \"main_parties\": [\"（甲方名称）\", \"（乙方名称）\"],\n"
+        "    \"background\": \"（简要说明合同目的或合作背景）\"\n"
+        "  },\n"
+        "  \"risk_analysis\": [\n"
+        "    {\n"
+        "      \"id\": 1,\n"
+        "      \"risk_type\": \"（风险类型，如法律风险/履约风险/保密风险等）\",\n"
+        "      \"clause_excerpt\": \"（引用存在风险的合同片段）\",\n"
+        "      \"problem_description\": \"（说明问题及隐患）\",\n"
+        "      \"suggested_revision\": \"（提出修改或补充建议）\",\n"
+        "      \"legal_basis\": \"（引用相关法律条文）\",\n"
+        "      \"risk_level\": \"（高/中/低）\"\n"
+        "    }\n"
+        "  ],\n"
+        "  \"summary\": {\n"
+        "    \"overall_risk_level\": \"（综合评估：高/中/低）\",\n"
+        "    \"risk_statistics\": {\n"
+        "      \"high\": 0,\n"
+        "      \"medium\": 0,\n"
+        "      \"low\": 0\n"
+        "    },\n"
+        "    \"conclusion\": \"（简要说明合同总体风险与签署建议）\",\n"
+        "    \"recommendation\": \"（提出修改与完善的方向）\"\n"
+        "  }\n"
+        "}\n\n"
+        "请根据上述要求审查以下合同文本，并仅返回符合此 JSON 结构的结果，不输出任何其他说明或文字。"
+    )
+
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": text},
+    ]
+    raw = await qwen_client.chat(messages)
+    return _extract_json_block(raw)

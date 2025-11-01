@@ -24,7 +24,12 @@ class FileRead(FileBase):
     id: int
     user_id: Optional[int] = None
     doc_url: str
+    preview_url: Optional[str] = None
+    download_url: Optional[str] = None
     created_at: Optional[datetime] = None
     class Config:
         from_attributes = True
 
+
+class FileHtmlPayload(BaseModel):
+    html: str

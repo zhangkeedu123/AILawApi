@@ -1,5 +1,6 @@
-from fastapi import APIRouter, HTTPException, Depends, Query, UploadFile, File, Form, Request
-from ..schemas.file_schema import FileCreate, FileUpdate, FileRead
+﻿from fastapi import APIRouter, HTTPException, Depends, Query, UploadFile, File, Form, Request
+from fastapi.responses import FileResponse
+from ..schemas.file_schema import FileCreate, FileUpdate, FileRead, FileHtmlPayload
 from ..common.pagination import Paginated, PageMeta
 from ..common.params import PageParams
 from ..services import files_service
@@ -11,12 +12,16 @@ import os
 import re
 import time
 import uuid
+import mimetypes
+from urllib.parse import quote
 
 router = APIRouter(prefix="/files", tags=["File"])
 
 
 def _repo_root() -> Path:
-    # 项目根目录：backend/app/routers -> parents[3] 即仓库根
+    # 运行在容器中时，代码目录通常挂载在 /app，当前文件位于 /app/app/routers/...
+    # 使用 parents[3] 指向代码根（本仓库的 backend 目录或容器内的 /app）
+    # 这样保存到 "files/" 会落在挂载卷内（宿主机的 backend/files）
     return Path(__file__).resolve().parents[3]
 
 
@@ -26,6 +31,17 @@ def _ensure_dir(p: Path) -> None:
 
 def _safe_name(name: str) -> str:
     return re.sub(r"[^\w\-.]+", "_", name)
+
+
+def _attach_urls(obj: dict) -> dict:
+    try:
+        fid = int(obj.get("id"))
+    except Exception:
+        return obj
+    obj = dict(obj)
+    obj["preview_url"] = f"/files/raw/{fid}"
+    obj["download_url"] = f"/files/raw/{fid}?download=true"
+    return obj
 
 
 def _should_extract_text(upload: UploadFile) -> bool:
@@ -41,8 +57,6 @@ def _should_extract_text(upload: UploadFile) -> bool:
     return False
 
 
-
-
 @router.get("/", response_model=ApiResponse[Paginated[FileRead]])
 async def list_files(
     page_params: PageParams = Depends(),
@@ -55,6 +69,7 @@ async def list_files(
         name=name, user_id=int(user["id"]),
         page=page_params.page, page_size=page_params.page_size,
     )
+    items = [_attach_urls(i) for i in items]
     return ApiResponse(result={
         "meta": PageMeta(total=total, page=page_params.page, page_size=page_params.page_size),
         "items": items,
@@ -66,20 +81,19 @@ async def get_file(file_id: int, user: dict = Depends(get_current_user)):
     obj = await files_service.get_file_by_id(file_id)
     if not obj or (obj.get("user_id") and int(obj["user_id"]) != int(user["id"])):
         raise HTTPException(404, "File not found")
-    return ApiResponse(result=obj)
+    return ApiResponse(result=_attach_urls(obj))
 
 
 @router.post("/upload", response_model=ApiResponse[FileRead])
 async def upload_file(
     upload: UploadFile = File(..., description="要上传的文件"),
-    name: str | None = Form(None, description="文件展示名，可选"),
-    extract_text: bool = Form(True, description="是否抽取文本内容(仅文本类型)"),
+    name: str | None = Form(None, description="文件展示名（可选）"),
+    extract_text: bool = Form(False, description="是否抽取文本内容（仅文本类）"),
     user: dict = Depends(get_current_user),
 ):
     """上传文件到相对目录 `files/` 下，并在数据库中创建记录。
-
     - 存储路径：`files/{user_id}/{uuid_time}_{safe_name}`（相对项目根）
-    - 数据库字段：user_id, name, doc_url(相对路径), content(可选文本)
+    - 数据库字段：user_id, name, doc_url（相对路径）, content（可选文本）
     """
     repo_root = _repo_root()
     store_dir = repo_root / "files" / str(int(user["id"]))
@@ -110,17 +124,17 @@ async def upload_file(
         "doc_url": str(rel_path).replace("\\", "/"),
         "content": text_content,
     })
-    return ApiResponse(result=obj)
+    return ApiResponse(result=_attach_urls(obj))
 
 
 @router.post("/extract", response_model=ApiResponse[str])
 async def extract_file_content(
-    upload: UploadFile = File(..., description="上传待识别内容的文件（docx/pdf/txt）"),
+    upload: UploadFile = File(..., description="上传待识别内容的文件（docx/pdf/txt 等）"),
     user: dict = Depends(get_current_user),
 ):
     """识别上传文件内容（不落盘不入库），直接返回文本。
-    - 支持：.docx、.pdf、文本类（txt/csv/md/json 等）
-    - 不支持：图片、加密 PDF、复杂版式可能效果一般
+    - 支持：docx、pdf、文本类（txt/csv/md/json 等）
+    - 不支持：图片、加密 PDF，复杂版式效果有限
     """
     if not upload.filename:
         raise HTTPException(400, "缺少文件名")
@@ -135,12 +149,12 @@ async def extract_file_content(
             filename=upload.filename,
             content_type=upload.content_type,
         )
-    except files_service.UnsupportedFileType as e:
-        return ApiResponse(msg="暂不支持的文件类型",status=False)
-    except files_service.DependencyMissing as e:
-        return ApiResponse(msg="缺少依赖",status=False)
-    except files_service.FileExtractError as e:
-        return ApiResponse(msg="解析失败",status=False)
+    except files_service.UnsupportedFileType:
+        return ApiResponse(msg="暂不支持的文件类型", status=False)
+    except files_service.DependencyMissing:
+        return ApiResponse(msg="缺少依赖", status=False)
+    except files_service.FileExtractError:
+        return ApiResponse(msg="解析失败", status=False)
 
     return ApiResponse(result=text)
 
@@ -151,6 +165,78 @@ async def update_file(file_id: int, payload: FileUpdate, user: dict = Depends(ge
     if not obj or (obj.get("user_id") and int(obj["user_id"]) != int(user["id"])):
         raise HTTPException(404, "File not found")
     updated = await files_service.update_file(file_id, payload.model_dump(exclude_unset=True))
+    return ApiResponse(result=_attach_urls(updated) if updated else updated)
+
+
+@router.get("/raw/{file_id}")
+async def download_file(
+    file_id: int,
+    download: bool = Query(False, description="是否以附件下载；默认内联预览"),
+    user: dict = Depends(get_current_user),
+):
+    """根据 `file_id` 返回原始文件内容。
+    - `download=false`（默认）：内联预览（pdf、图片、文本等）
+    - `download=true`：作为附件下载
+    """
+    obj = await files_service.get_file_by_id(file_id)
+    if not obj or (obj.get("user_id") and int(obj["user_id"]) != int(user["id"])):
+        raise HTTPException(404, "File not found")
+
+    repo_root = _repo_root()
+    rel = obj.get("doc_url") or ""
+    abs_path = (repo_root / rel).resolve()
+    files_root = (repo_root / "files").resolve()
+
+    # 路径校验与存在性检查
+    if not str(abs_path).startswith(str(files_root)) or not abs_path.exists():
+        raise HTTPException(404, "File not found")
+
+    # 猜测内容类型，默认二进制
+    media_type = mimetypes.guess_type(abs_path.name)[0] or "application/octet-stream"
+
+    # 文件名：优先使用展示名，其次实际文件名
+    # 为兼容中文/Unicode，使用 RFC 5987：filename* 搭配 ASCII 回退 filename
+    original_name = str(obj.get("name") or abs_path.name)
+    disposition = "attachment" if download else "inline"
+    # ASCII 回退名（仅保留 A-Za-z0-9_.-）
+    fallback_name = re.sub(r"[^A-Za-z0-9_.-]+", "_", original_name) or "file"
+    # RFC 5987 编码（百分号编码 UTF-8）
+    encoded_name = quote(original_name, safe="")
+    cd_value = f"{disposition}; filename=\"{fallback_name}\"; filename*=UTF-8''{encoded_name}"
+    headers = {"Content-Disposition": cd_value}
+
+    return FileResponse(path=str(abs_path), media_type=media_type, headers=headers)
+
+
+@router.get("/html/{file_id}", response_model=ApiResponse[str])
+async def get_file_html(file_id: int, user: dict = Depends(get_current_user)):
+    obj = await files_service.get_file_by_id(file_id)
+    if not obj or (obj.get("user_id") and int(obj["user_id"]) != int(user["id"])):
+        raise HTTPException(404, "File not found")
+    try:
+        html = await files_service.get_file_as_html(file_id)
+    except files_service.UnsupportedFileType:
+        return ApiResponse(msg="暂不支持该文件转换为HTML", status=False)
+    except files_service.DependencyMissing:
+        return ApiResponse(msg="缺少依赖", status=False)
+    except files_service.FileExtractError as e:
+        return ApiResponse(msg="转换失败", status=False)
+    return ApiResponse(result=html)
+
+
+@router.post("/html/{file_id}", response_model=ApiResponse[FileRead])
+async def update_file_from_html(file_id: int, payload: FileHtmlPayload, user: dict = Depends(get_current_user)):
+    obj = await files_service.get_file_by_id(file_id)
+    if not obj or (obj.get("user_id") and int(obj["user_id"]) != int(user["id"])):
+        raise HTTPException(404, "File not found")
+    try:
+        updated = await files_service.update_file_with_html(file_id, payload.html)
+    except files_service.DependencyMissing:
+        return ApiResponse(msg="缺少依赖", status=False)
+    except files_service.FileExtractError:
+        return ApiResponse(msg="写回失败", status=False)
+    if not updated:
+        raise HTTPException(404, "File not found")
     return ApiResponse(result=updated)
 
 
@@ -165,7 +251,7 @@ async def delete_file(file_id: int, user: dict = Depends(get_current_user)):
         repo_root = _repo_root()
         rel = obj.get("doc_url") or ""
         abs_path = (repo_root / rel).resolve()
-        # 防止越权删除，仅允许 files 目录下
+        # 防止越权删除，仅允许 files 目录
         files_root = (repo_root / "files").resolve()
         if str(abs_path).startswith(str(files_root)) and abs_path.exists():
             os.remove(abs_path)

@@ -11,15 +11,14 @@ router = APIRouter(prefix="/contracts", tags=["Contract"])
 @router.get("/", response_model=ApiResponse[Paginated[ContractRead]])
 async def list_contracts(
     page_params: PageParams = Depends(),
-    customer: str | None = Query(None, description="客户名称(模糊)"),
+    contract_name: str | None = Query(None, description="合同名称(模糊)"),
     type_: str | None = Query(None, alias="type", description="合同类型"),
-    status: str | None = Query(None, description="状态"),
-    upload_date_from: str | None = Query(None, description="上传日期(如 YYYY-MM-DD)"),
-    upload_date_to: str | None = Query(None, description="上传日期(如 YYYY-MM-DD)"),
+    hasrisk: str | None = Query(None, description="是否有风险"),
 ):
     items, total = await contract_service.list_contracts_service(
-        customer=customer, type_=type_, status=status,
-        upload_date_from=upload_date_from, upload_date_to=upload_date_to,
+        contract_name=contract_name,
+        type_=type_,
+        hasrisk=hasrisk,
         page=page_params.page, page_size=page_params.page_size,
     )
     return ApiResponse(result={"meta": PageMeta(total=total, page=page_params.page, page_size=page_params.page_size), "items": items})
