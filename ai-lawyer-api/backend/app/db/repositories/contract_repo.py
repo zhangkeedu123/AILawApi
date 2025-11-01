@@ -1,4 +1,5 @@
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple
+
 import asyncpg
 
 
@@ -7,41 +8,46 @@ SELECT_COLUMNS = [
     "id",
     "contract_name",
     "type",
-    "hasRisk",
+    "hasrisk",
     "high_risk",
     "medium_risk",
     "low_risk",
+    "files",
     "created_at",
 ]
 
 
 def _build_filters(
-    customer: Optional[str],
+    contract_name: Optional[str],
     type_: Optional[str],
-    status: Optional[str],
-    upload_date_from: Optional[str],
-    upload_date_to: Optional[str],
-):
+    hasrisk: Optional[str],
+) -> Tuple[List[str], List[Any]]:
     clauses: List[str] = []
     values: List[Any] = []
-    # SQL 无 customer 字段，忽略
+
+    if contract_name:
+        values.append(f"%{contract_name}%")
+        clauses.append(f"contract_name ILIKE ${len(values)}")
+
     if type_:
         values.append(type_)
         clauses.append(f"type = ${len(values)}")
-    # SQL 无 status / uploadDate 字段，忽略
+
+    if hasrisk:
+        values.append(hasrisk)
+        clauses.append(f"hasrisk = ${len(values)}")
+
     return clauses, values
 
 
 async def count(
     pool: asyncpg.Pool,
     *,
-    customer: Optional[str] = None,
+    contract_name: Optional[str] = None,
     type_: Optional[str] = None,
-    status: Optional[str] = None,
-    upload_date_from: Optional[str] = None,
-    upload_date_to: Optional[str] = None,
+    hasrisk: Optional[str] = None,
 ) -> int:
-    clauses, values = _build_filters(customer, type_, status, upload_date_from, upload_date_to)
+    clauses, values = _build_filters(contract_name, type_, hasrisk)
     where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     sql = f"SELECT COUNT(*) FROM {TABLE} {where_sql};"
     async with pool.acquire() as conn:
@@ -53,18 +59,19 @@ async def get_all(
     *,
     skip: int = 0,
     limit: int = 20,
-    customer: Optional[str] = None,
+    contract_name: Optional[str] = None,
     type_: Optional[str] = None,
-    status: Optional[str] = None,
-    upload_date_from: Optional[str] = None,
-    upload_date_to: Optional[str] = None,
+    hasrisk: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
-    clauses, values = _build_filters(customer, type_, status, upload_date_from, upload_date_to)
+    clauses, values = _build_filters(contract_name, type_, hasrisk)
     where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    offset_idx = len(values) + 1
+    limit_idx = len(values) + 2
     values.extend([skip, limit])
     cols = ", ".join(SELECT_COLUMNS)
     sql = (
-        f"SELECT {cols} FROM {TABLE} {where_sql} ORDER BY id DESC OFFSET ${len(values)-1} LIMIT ${len(values)};"
+        f"SELECT {cols} FROM {TABLE} {where_sql} "
+        f"ORDER BY id DESC OFFSET ${offset_idx} LIMIT ${limit_idx};"
     )
     async with pool.acquire() as conn:
         rows = await conn.fetch(sql, *values)
