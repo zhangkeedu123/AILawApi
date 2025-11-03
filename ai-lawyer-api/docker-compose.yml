@@ -18,10 +18,12 @@ services:
       DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY}
       DASHSCOPE_BASE_URL: ${DASHSCOPE_BASE_URL}
       DEFAULT_MODEL: ${DEFAULT_MODEL}
+      FILES_ROOT: ${FILES_ROOT:-/app/files}
     ports:
       - "8000:8000"
     volumes:
       - ./backend:/app
+      - ./storage/files:/app/files
     command: >
       sh -c "
       uvicorn app.main:app --host ${APP_HOST} --port ${APP_PORT} --reload

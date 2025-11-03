@@ -125,6 +125,7 @@ async def analyze_contract_ai(text: str) -> str:
         "      \"clause_excerpt\": \"（引用存在风险的合同片段）\",\n"
         "      \"problem_description\": \"（说明问题及隐患）\",\n"
         "      \"suggested_revision\": \"（提出修改或补充建议）\",\n"
+        "      \"result_content\": \"（修改示范）\",\n"
         "      \"legal_basis\": \"（引用相关法律条文）\",\n"
         "      \"risk_level\": \"（高/中/低）\"\n"
         "    }\n"

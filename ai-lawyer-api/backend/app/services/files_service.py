@@ -1,10 +1,24 @@
+# -*- coding: utf-8 -*-
+
 from typing import Optional, Tuple, List, Dict, Any
-from ..db.db import get_pg_pool
-from ..db.repositories import files_repo
 from pathlib import Path
 from io import BytesIO
 from html.parser import HTMLParser
+import os
+import logging
+import re
+import tempfile
+import subprocess
+import shutil
 
+from ..db.db import get_pg_pool
+from ..db.repositories import files_repo
+
+
+logger = logging.getLogger(__name__)
+
+
+# ------------------ 自定义异常 ------------------
 
 class FileExtractError(Exception):
     pass
@@ -17,6 +31,8 @@ class UnsupportedFileType(FileExtractError):
 class DependencyMissing(FileExtractError):
     pass
 
+
+# ------------------ 文本抽取 ------------------
 
 def _extract_docx_text(data: bytes) -> str:
     try:
@@ -43,7 +59,7 @@ def _extract_pdf_text(data: bytes) -> str:
         except Exception as e:
             raise DependencyMissing(f"pypdf/PyPDF2 加载失败: {e}")
     try:
-        texts = []
+        texts: List[str] = []
         for page in reader.pages:
             t = page.extract_text() or ""
             if t:
@@ -66,7 +82,7 @@ def _is_text_like(filename: str, content_type: Optional[str]) -> bool:
 def extract_file_text(data: bytes, filename: str, content_type: Optional[str]) -> str:
     """从上传数据中提取文本（不落盘）。
     仅支持 docx/pdf/文本类文件，不支持图片、加密 PDF 等。
-    失败时抛出 FileExtractError 派生异常，调用方根据异常类型映射 HTTP 状态码。
+    失败时抛出 FileExtractError 及其子类，由调用方映射 HTTP 状态码。
     """
     if not data:
         raise FileExtractError("空文件")
@@ -85,6 +101,8 @@ def extract_file_text(data: bytes, filename: str, content_type: Optional[str]) -
 
     raise UnsupportedFileType("仅支持 docx、pdf、文本类文件")
 
+
+# ------------------ 文件表 CRUD ------------------
 
 async def list_files_service(
     *,
@@ -131,21 +149,29 @@ async def delete_file(file_id: int) -> bool:
     return await files_repo.delete(pool, file_id)
 
 
-# ------------------ HTML/Docx 转换与读取磁盘辅助 ------------------
+# ------------------ 存储路径与安全 ------------------
 
-def _repo_root() -> Path:
-    # 与 router 中逻辑保持一致：/app/app/services/... -> parents[3] 指向代码根
-    return Path(__file__).resolve().parents[3]
+def _files_root() -> Path:
+    return Path(os.environ.get("FILES_ROOT", "/app/files")).resolve()
 
 
 def _safe_join_file_path(doc_url: str) -> Path:
-    repo_root = _repo_root()
-    abs_path = (repo_root / (doc_url or "")).resolve()
-    files_root = (repo_root / "files").resolve()
+    """规范映射：数据库存储以 "files/" 开头；物理位置为 FILES_ROOT/去前缀路径。"""
+    files_root = _files_root()
+    rel_raw = (doc_url or "").strip()
+    rel = rel_raw.replace("\\", "/").lstrip("/")
+    if not rel.lower().startswith("files/"):
+        raise FileExtractError("非法文件路径")
+    rel_no_prefix = rel[6:]
+    abs_path = (files_root / rel_no_prefix).resolve()
     if not str(abs_path).startswith(str(files_root)):
         raise FileExtractError("非法文件路径")
+    if not abs_path.exists():
+        raise FileExtractError("文件不存在")
     return abs_path
 
+
+# ------------------ HTML 渲染辅助 ------------------
 
 def _escape_html(text: str) -> str:
     return (
@@ -156,20 +182,33 @@ def _escape_html(text: str) -> str:
 
 
 def _docx_to_html(data: bytes) -> str:
+    """优先使用 mammoth 生成更保真的 HTML，失败再回退到 python-docx 的简易方案。"""
     try:
-        import docx  # python-docx
+        import mammoth  # type: ignore
+        try:
+            result = mammoth.convert_to_html(BytesIO(data))
+            html = result.value or ""
+            return f"<div>{html}</div>"
+        except Exception:
+            pass
+    except Exception:
+        pass
+
+    try:
+        import docx
     except Exception as e:
         raise DependencyMissing(f"python-docx 加载失败: {e}")
     try:
         document = docx.Document(BytesIO(data))
         html_parts: List[str] = ["<div>"]
         for p in document.paragraphs:
-            if not p.runs:
-                html_parts.append("<p>")
-                html_parts.append("<br/>")
-                html_parts.append("</p>")
-                continue
-            html_parts.append("<p>")
+            style_name = (getattr(p.style, 'name', '') or '').lower()
+            if style_name.startswith('heading'):
+                level = ''.join(ch for ch in style_name if ch.isdigit()) or '1'
+                tag = f"h{level}"
+            else:
+                tag = "p"
+            runs_html: List[str] = []
             for r in p.runs:
                 t = _escape_html(r.text or "")
                 if not t:
@@ -185,8 +224,9 @@ def _docx_to_html(data: bytes) -> str:
                 if r.underline:
                     open_tags += "<u>"
                     close_tags = "</u>" + close_tags
-                html_parts.append(f"{open_tags}{t}{close_tags}")
-            html_parts.append("</p>")
+                runs_html.append(f"{open_tags}{t}{close_tags}")
+            inner = ''.join(runs_html) or "<br/>"
+            html_parts.append(f"<{tag}>{inner}</{tag}>")
         html_parts.append("</div>")
         return "".join(html_parts)
     except Exception as e:
@@ -194,21 +234,126 @@ def _docx_to_html(data: bytes) -> str:
 
 
 def _text_to_html(text: str) -> str:
-    # 将多段文本按空行拆分为<p>，行内保持简单换行
     parts: List[str] = ["<div>"]
     for para in (text or "").splitlines():
         parts.append(f"<p>{_escape_html(para)}</p>")
     parts.append("</div>")
     return "".join(parts)
 
-
+ 
 def _pdf_to_html(data: bytes) -> str:
-    # 以提取文本为主，再转为简单段落
     text = _extract_pdf_text(data)
     return _text_to_html(text)
 
 
-async def get_file_as_html(file_id: int) -> str:
+# ------------------ LibreOffice 转换 ------------------
+
+def _run_soffice_convert(input_path: Path, out_dir: Path, to: str) -> bool:
+    soffice = shutil.which("soffice") or shutil.which("libreoffice")
+    if not soffice:
+        return False
+    profile_dir = out_dir / "lo_profile"
+    cmd = [
+        soffice,
+        "--headless",
+        f"-env:UserInstallation=file:///{profile_dir.as_posix()}",
+        "--convert-to",
+        to,
+        "--outdir",
+        str(out_dir),
+        str(input_path),
+    ]
+    try:
+        timeout_s = 180 if to.startswith("docx") else 120
+        proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout_s)
+        if proc.returncode != 0:
+            logger.warning("LibreOffice convert failed rc=%s to=%s stderr=%s", proc.returncode, to, proc.stderr.decode(errors="ignore"))
+            return False
+        return True
+    except Exception:
+        logger.exception("LibreOffice convert exception to=%s", to)
+        return False
+
+
+def _try_doc_to_html_via_libreoffice(data: bytes) -> str | None:
+    with tempfile.TemporaryDirectory() as td:
+        in_path = Path(td) / "input.doc"
+        out_dir = Path(td)
+        in_path.write_bytes(data)
+        if not _run_soffice_convert(in_path, out_dir, "html:HTML"):
+            if not _run_soffice_convert(in_path, out_dir, "html"):
+                return None
+        out_html = out_dir / "input.html"
+        if out_html.exists():
+            return out_html.read_text(encoding="utf-8", errors="ignore")
+        return None
+
+
+def _try_docx_to_html_via_libreoffice(data: bytes) -> str | None:
+    with tempfile.TemporaryDirectory() as td:
+        in_path = Path(td) / "input.docx"
+        out_dir = Path(td)
+        in_path.write_bytes(data)
+        if not _run_soffice_convert(in_path, out_dir, "html:HTML"):
+            if not _run_soffice_convert(in_path, out_dir, "html"):
+                return None
+        out_html = out_dir / "input.html"
+        if out_html.exists():
+            return out_html.read_text(encoding="utf-8", errors="ignore")
+        return None
+
+
+def _doc_to_html_via_libreoffice_mammoth(data: bytes) -> str | None:
+    soffice = shutil.which("soffice") or shutil.which("libreoffice")
+    if not soffice:
+        return None
+    try:
+        import mammoth  # type: ignore
+    except Exception:
+        return None
+    with tempfile.TemporaryDirectory() as td:
+        in_path = Path(td) / "input.doc"
+        out_dir = Path(td)
+        in_path.write_bytes(data)
+        if not _run_soffice_convert(in_path, out_dir, "docx"):
+            return None
+        out_docx = out_dir / "input.docx"
+        if not out_docx.exists():
+            return None
+        with out_docx.open("rb") as f:
+            result = mammoth.convert_to_html(f)
+            html = result.value or ""
+            return f"<div>{html}</div>"
+
+
+# ------------------ 样式与清理 ------------------
+
+def _inject_default_css(html: str) -> str:
+    style = (
+        "<style>"
+        "body,div{font-family: system-ui,Segoe UI,Roboto,Helvetica,Arial,'Noto Sans SC',sans-serif;}"
+        "p{margin:0.6em 0;line-height:1.7;}"
+        "p:has(>br:only-child){display:none;}"
+        "h1{font-size:1.8em;margin:0.8em 0 0.4em;}"
+        "h2{font-size:1.6em;margin:0.8em 0 0.4em;}"
+        "h3{font-size:1.4em;margin:0.8em 0 0.4em;}"
+        "ul,ol{margin:0.6em 1.4em;}"
+        "table{border-collapse:collapse;margin:0.6em 0;width:100%;}"
+        "th,td{border:1px solid #ddd;padding:6px;vertical-align:top;}"
+        "</style>"
+    )
+    if "<style" in html:
+        return html
+    if html.lstrip().startswith("<div"):
+        return html.replace("<div>", f"<div>{style}", 1)
+    return style + html
+
+
+
+
+# ------------------ 对外：HTML 预览 ------------------
+
+async def get_file_as_html(file_id: int, mode: str = "semantic") -> str:
     obj = await get_file_by_id(file_id)
     if not obj:
         raise FileExtractError("文件不存在")
@@ -217,22 +362,64 @@ async def get_file_as_html(file_id: int) -> str:
         raise FileExtractError("文件不存在")
     suffix = abs_path.suffix.lower()
     data = abs_path.read_bytes()
+
     if suffix == ".docx":
-        return _docx_to_html(data)
+        # 强制走 mammoth 转换路径
+        try:
+            import mammoth  # type: ignore
+        except Exception as e:
+            raise DependencyMissing(f"mammoth 加载失败: {e}")
+        with open(abs_path, "rb") as f:
+            result = mammoth.convert_to_html(f)
+        html = result.value or ""
+        return html
+
     if suffix == ".pdf":
-        return _pdf_to_html(data)
-    # 其他文本类：按 utf-8 解码并包装为简单 HTML
+        html = _pdf_to_html(data)
+        return _inject_default_css(html) if mode == "semantic" else html
+
+    if suffix == ".doc":
+        # 先转 docx 再用 mammoth 转 html
+        soffice = shutil.which("soffice") or shutil.which("libreoffice")
+        if not soffice:
+            raise DependencyMissing("缺少 LibreOffice (soffice) 用于将 .doc 转为 .docx")
+        try:
+            import mammoth  # type: ignore
+        except Exception as e:
+            raise DependencyMissing(f"mammoth 加载失败: {e}")
+        with tempfile.TemporaryDirectory() as td:
+            in_path = abs_path
+            out_dir = Path(td)
+            # 转换为 docx
+            if not _run_soffice_convert(in_path, out_dir, "docx"):
+                raise FileExtractError(".doc 转 .docx 失败")
+            docx_path = out_dir / "input.docx"
+            if not docx_path.exists():
+                # 某些版本会保留原文件名
+                alts = list(out_dir.glob("*.docx"))
+                if not alts:
+                    raise FileExtractError("未找到转换后的 .docx 文件")
+                docx_path = alts[0]
+            with open(docx_path, "rb") as f:
+                result = mammoth.convert_to_html(f)
+            html = result.value or ""
+            return _inject_default_css(f"<div>{html}</div>")
+
+    # 其余文本类：utf-8 解码并包装为 HTML
     try:
         text = data.decode("utf-8", errors="ignore")
-        return _text_to_html(text)
+        html = _text_to_html(text)
+        return _inject_default_css(html) if mode == "semantic" else html
     except Exception:
         raise UnsupportedFileType("暂不支持该文件格式的 HTML 预览")
 
 
+# ------------------ HTML -> DOCX 写回 ------------------
+
 class _HTMLToDocxParser(HTMLParser):
     def __init__(self):
         super().__init__()
-        self.blocks: List[Dict[str, Any]] = []  # 每个 block: {tag: 'p'|'h1'..., runs: [{text, bold, italic, underline}]}
+        self.blocks: List[Dict[str, Any]] = []  # 每个 block: {tag, runs: [{text,bold,italic,underline}]}
         self.current_runs: List[Dict[str, Any]] = []
         self.style_stack: List[Dict[str, bool]] = []
         self.current_block_tag: str = "p"
@@ -256,7 +443,6 @@ class _HTMLToDocxParser(HTMLParser):
             style["italic"] = True
         if t == "u":
             style["underline"] = True
-        # 入栈，与上层样式合并（简单处理）
         if self.style_stack:
             parent = self.style_stack[-1].copy()
             for k, v in style.items():
@@ -300,7 +486,10 @@ def _html_to_docx_bytes(html: str) -> bytes:
         tag = block.get("tag") or "p"
         if tag in ("h1", "h2", "h3", "h4", "h5", "h6"):
             p = document.add_paragraph()
-            p.style = f"Heading {tag[1:]}" if tag[1:].isdigit() else None
+            try:
+                p.style = f"Heading {tag[1:]}"
+            except Exception:
+                pass
         else:
             p = document.add_paragraph()
         for r in block.get("runs", []):
@@ -317,36 +506,34 @@ async def update_file_with_html(file_id: int, html: str) -> Optional[Dict[str, A
     obj = await get_file_by_id(file_id)
     if not obj:
         return None
-    # 目标写入路径（优先覆盖 .docx，非 docx 则改为 .docx 并更新记录）
-    repo_root = _repo_root()
-    rel = obj.get("doc_url") or ""
-    old_abs = (repo_root / rel).resolve()
-    files_root = (repo_root / "files").resolve()
+    files_root = _files_root()
+    rel = (obj.get("doc_url") or "").replace("\\", "/").lstrip("/")
+    if not rel.lower().startswith("files/"):
+        raise FileExtractError("非法文件路径")
+    rel_no_prefix = rel[6:]
+    old_abs = (files_root / rel_no_prefix).resolve()
     if not str(old_abs).startswith(str(files_root)):
         raise FileExtractError("非法文件路径")
     if old_abs.suffix.lower() == ".docx":
         target_abs = old_abs
-        new_rel = rel
+        new_rel = str(Path("files") / rel_no_prefix).replace("\\", "/")
         new_name = obj.get("name") or old_abs.name
     else:
         target_abs = old_abs.with_suffix('.docx')
-        new_rel = str(Path(rel).with_suffix('.docx')).replace('\\', '/')
+        new_rel = str(Path("files") / Path(rel_no_prefix).with_suffix('.docx')).replace("\\", "/")
         stem = (obj.get("name") or old_abs.name)
         new_name = str(Path(stem).with_suffix('.docx'))
 
     data = _html_to_docx_bytes(html or "")
-    # 确保目录存在
     target_abs.parent.mkdir(parents=True, exist_ok=True)
     target_abs.write_bytes(data)
 
-    # 如果更名为 .docx，尝试删除旧文件
     if target_abs != old_abs and old_abs.exists():
         try:
             old_abs.unlink()
         except Exception:
             pass
 
-    # 更新数据库记录
     updated = await update_file(file_id, {
         "doc_url": new_rel,
         "name": new_name,

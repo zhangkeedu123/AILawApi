@@ -29,6 +29,11 @@ def _ensure_dir(p: Path) -> None:
     p.mkdir(parents=True, exist_ok=True)
 
 
+def _files_root() -> Path:
+    # 使用环境变量 FILES_ROOT 指定物理存储根目录，默认 /app/files
+    return Path(os.environ.get("FILES_ROOT", "/app/files")).resolve()
+
+
 def _safe_name(name: str) -> str:
     return re.sub(r"[^\w\-.]+", "_", name)
 
@@ -95,15 +100,15 @@ async def upload_file(
     - 存储路径：`files/{user_id}/{uuid_time}_{safe_name}`（相对项目根）
     - 数据库字段：user_id, name, doc_url（相对路径）, content（可选文本）
     """
-    repo_root = _repo_root()
-    store_dir = repo_root / "files" / str(int(user["id"]))
+    files_root = _files_root()
+    store_dir = files_root / str(int(user["id"]))
     _ensure_dir(store_dir)
 
     original = upload.filename or "upload.bin"
     display_name = name or original
     fname = f"{int(time.time())}_{uuid.uuid4().hex[:8]}_{_safe_name(original)}"
     rel_path = Path("files") / str(int(user["id"])) / fname
-    abs_path = repo_root / rel_path
+    abs_path = files_root / str(int(user["id"])) / fname
 
     # 保存文件
     data = await upload.read()
@@ -182,10 +187,11 @@ async def download_file(
     if not obj or (obj.get("user_id") and int(obj["user_id"]) != int(user["id"])):
         raise HTTPException(404, "File not found")
 
-    repo_root = _repo_root()
-    rel = obj.get("doc_url") or ""
-    abs_path = (repo_root / rel).resolve()
-    files_root = (repo_root / "files").resolve()
+    rel = (obj.get("doc_url") or "").lstrip("/\\")
+    if rel.startswith("files/"):
+        rel = rel[len("files/"):]
+    files_root = _files_root()
+    abs_path = (files_root / rel).resolve()
 
     # 路径校验与存在性检查
     if not str(abs_path).startswith(str(files_root)) or not abs_path.exists():
@@ -209,20 +215,24 @@ async def download_file(
 
 
 @router.get("/html/{file_id}", response_model=ApiResponse[str])
-async def get_file_html(file_id: int, user: dict = Depends(get_current_user)):
+async def get_file_html(
+    file_id: int,
+    mode: str = Query("faithful", description="HTML 渲染模式: semantic/faithful(默认)"),
+    user: dict = Depends(get_current_user),
+):
     obj = await files_service.get_file_by_id(file_id)
     if not obj or (obj.get("user_id") and int(obj["user_id"]) != int(user["id"])):
         raise HTTPException(404, "File not found")
     try:
-        html = await files_service.get_file_as_html(file_id)
+        html = await files_service.get_file_as_html(file_id, mode=mode)
     except files_service.UnsupportedFileType:
         return ApiResponse(msg="暂不支持该文件转换为HTML", status=False)
     except files_service.DependencyMissing:
         return ApiResponse(msg="缺少依赖", status=False)
     except files_service.FileExtractError as e:
-        return ApiResponse(msg="转换失败", status=False)
+        return ApiResponse(msg=f"转换失败: {e}", status=False)
     return ApiResponse(result=html)
-
+ 
 
 @router.post("/html/{file_id}", response_model=ApiResponse[FileRead])
 async def update_file_from_html(file_id: int, payload: FileHtmlPayload, user: dict = Depends(get_current_user)):
@@ -263,3 +273,4 @@ async def delete_file(file_id: int, user: dict = Depends(get_current_user)):
     if not ok:
         raise HTTPException(404, "File not found")
     return ApiResponse(result=True)
+
