@@ -28,3 +28,12 @@ async def insert_many(pool: asyncpg.Pool, rows: list[dict]) -> int:
     return len(rows)
 
 
+async def select_by_contract(pool: asyncpg.Pool, contract_id: int) -> list[dict]:
+    sql = (
+        f"SELECT id, contract_id, title, risk_level, position, method, risk_clause, "
+        f"result_type, original_content, suggestion, result_content, legal_basis "
+        f"FROM {TABLE} WHERE contract_id=$1 ORDER BY id ASC;"
+    )
+    async with pool.acquire() as conn:
+        records = await conn.fetch(sql, contract_id)
+        return [dict(r) for r in records]

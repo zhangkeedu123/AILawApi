@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends, Query
 from ..schemas.contract_schema import ContractCreate, ContractUpdate, ContractRead
 from ..common.pagination import Paginated, PageMeta
 from ..common.params import PageParams
-from ..services import contract_service
+from ..services import contract_service, contract_review_service
 from ..schemas.response import ApiResponse
 
 router = APIRouter(prefix="/contracts", tags=["Contract"])
@@ -30,6 +30,13 @@ async def get_contract(contract_id: int):
     if not obj:
         raise HTTPException(404, "Contract not found")
     return ApiResponse(result=obj)
+
+
+@router.get("/{contract_id}/reviews", response_model=ApiResponse[list[dict]])
+async def list_contract_reviews(contract_id: int):
+    """根据合同ID获取合同审查记录，不分页，全部返回"""
+    items = await contract_review_service.list_reviews_by_contract(contract_id)
+    return ApiResponse(result=items)
 
 
 @router.post("/", response_model=ApiResponse[ContractRead])
