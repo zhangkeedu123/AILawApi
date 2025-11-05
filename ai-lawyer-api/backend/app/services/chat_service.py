@@ -4,6 +4,7 @@ import json
 from typing import Dict
 from ..core.ai_client import qwen_client
 from ..schemas.case_schema import CaseExtractResult
+from typing import Any
 
 
 def _normalize_case_json(s: str) -> Dict[str, str]:
@@ -150,3 +151,71 @@ async def analyze_contract_ai(text: str) -> str:
     ]
     raw = await qwen_client.chat(messages)
     return _extract_json_block(raw)
+
+
+async def generate_legal_document_ai(doc_type: str, case_material: str) -> str:
+    """根据案件材料生成指定类型的中文法律文书。
+
+    要求模型输出：
+    - 第一行仅为文书名称（示例：某某起诉状/上诉状/答辩状等，或更具体名称）
+    - 第二行开始为正文内容；不要输出任何多余说明、标签或代码块标记
+    - 保持中文法律写作风格，条理清晰、格式规范
+    """
+    system_prompt = (
+        "你是一名中国法律文书写作助手。请基于提供的案件材料，制作规范的中文法律文书。\n"
+        "输出规范：仅输出两部分：\n"
+        "1) 第一行：文书名称（仅名称，不含前后标点或引号）\n"
+        "2) 第二行及以后：文书正文内容（结构清晰，包含必要的标题与分段）\n"
+        "严禁输出任何额外前后缀、解释性文字、提示语或代码块标记。"
+    )
+
+    user_content = (
+        f"目标文书类型：{doc_type}\n\n"
+        f"案件材料：\n{case_material}".strip()
+    )
+
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_content},
+    ]
+    return await qwen_client.chat(messages)
+
+
+def compose_case_material(case: dict | None, extra_facts: str | None) -> str:
+    """将案件信息与补充事实整理为给模型的材料文本。
+
+    放在 service 层，避免路由层混入业务拼装逻辑（分层）。
+    """
+    if not case:
+        return (extra_facts or "").strip()
+    parts: list[str] = []
+    name = (case.get("name") or "").strip()
+    plaintiff = (case.get("plaintiff") or "").strip()
+    defendant = (case.get("defendant") or "").strip()
+    location = (case.get("location") or "").strip()
+    status_name = (case.get("status_name") or case.get("status") or "").strip()
+    claims = (case.get("claims") or "").strip()
+    facts = (case.get("facts") or "").strip()
+    if name:
+        parts.append(f"案名：{name}")
+    parties_lines = []
+    if plaintiff:
+        parties_lines.append(f"原告：{plaintiff}")
+    if defendant:
+        parties_lines.append(f"被告：{defendant}")
+    if parties_lines:
+        parts.append("当事人：" + "；".join(parties_lines))
+    base_info = []
+    if location:
+        base_info.append(f"地点：{location}")
+    if status_name:
+        base_info.append(f"状态：{status_name}")
+    if base_info:
+        parts.append("基本情况：" + "；".join(base_info))
+    if claims:
+        parts.append(f"诉讼请求：{claims}")
+    if facts:
+        parts.append(f"事实与理由：{facts}")
+    if extra_facts and extra_facts.strip():
+        parts.append(f"补充事实：{extra_facts.strip()}")
+    return "\n".join(parts).strip()

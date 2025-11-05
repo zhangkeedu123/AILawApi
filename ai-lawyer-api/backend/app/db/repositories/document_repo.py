@@ -5,8 +5,7 @@ import asyncpg
 TABLE = "documents"
 SELECT_COLUMNS = [
     "id",
-    "case_id",
-    "case_name",
+    "user_id",
     "doc_name",
     "doc_type",
     "doc_content",
@@ -16,22 +15,17 @@ SELECT_COLUMNS = [
 
 def _build_filters(
     doc_name: Optional[str],
-    case_name: Optional[str],
     doc_type: Optional[str],
-    status: Optional[str],
 ):
     clauses: List[str] = []
     values: List[Any] = []
     if doc_name:
         values.append(f"%{doc_name}%")
         clauses.append(f"doc_name ILIKE ${len(values)}")
-    if case_name:
-        values.append(f"%{case_name}%")
-        clauses.append(f"case_name ILIKE ${len(values)}")
     if doc_type:
         values.append(doc_type)
         clauses.append(f"doc_type = ${len(values)}")
-    # SQL 无 status 字段，此处忽略
+ 
     return clauses, values
 
 
@@ -39,11 +33,9 @@ async def count(
     pool: asyncpg.Pool,
     *,
     doc_name: Optional[str] = None,
-    case_name: Optional[str] = None,
     doc_type: Optional[str] = None,
-    status: Optional[str] = None,
 ) -> int:
-    clauses, values = _build_filters(doc_name, case_name, doc_type, status)
+    clauses, values = _build_filters(doc_name,  doc_type)
     where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     sql = f"SELECT COUNT(*) FROM {TABLE} {where_sql};"
     async with pool.acquire() as conn:
@@ -56,11 +48,9 @@ async def get_all(
     skip: int = 0,
     limit: int = 20,
     doc_name: Optional[str] = None,
-    case_name: Optional[str] = None,
     doc_type: Optional[str] = None,
-    status: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
-    clauses, values = _build_filters(doc_name, case_name, doc_type, status)
+    clauses, values = _build_filters(doc_name, doc_type)
     where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     values.extend([skip, limit])
     cols = ", ".join(SELECT_COLUMNS)

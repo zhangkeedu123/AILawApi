@@ -12,12 +12,10 @@ router = APIRouter(prefix="/documents", tags=["Document"])
 async def list_documents(
     page_params: PageParams = Depends(),
     doc_name: str | None = Query(None, description="文书名称(模糊)"),
-    case_name: str | None = Query(None, description="案件名称(模糊)"),
     doc_type: str | None = Query(None, description="文书类型"),
-    status: str | None = Query(None, description="状态"),
 ):
     items, total = await document_service.list_documents_service(
-        doc_name=doc_name, case_name=case_name, doc_type=doc_type, status=status,
+        doc_name=doc_name,  doc_type=doc_type,
         page=page_params.page, page_size=page_params.page_size,
     )
     return ApiResponse(result={"meta": PageMeta(total=total, page=page_params.page, page_size=page_params.page_size), "items": items})

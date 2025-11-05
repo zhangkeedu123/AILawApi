@@ -1,9 +1,13 @@
-﻿from fastapi import APIRouter, Request, Query, BackgroundTasks
+from fastapi import APIRouter, Request, Query, BackgroundTasks
+from pydantic import BaseModel
+
 from ..schemas.conversation import ChatRequest, ChatResponse
 from ..schemas.response import ApiResponse
 from ..services import conversation_service, chat_service
 from ..services import contract_review_service
+from ..services import document_service, case_service
 from ..schemas.case_schema import CaseExtractResult
+
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -18,7 +22,7 @@ async def chat_endpoint(payload: ChatRequest, request: Request) -> ApiResponse[C
 
 @router.post("/analyze", response_model=ApiResponse[ChatResponse])
 async def analyze_case(payload: ChatRequest) -> ApiResponse[ChatResponse]:
-    """直接调用 AI 做案件分析。"""
+    """直接调用 AI 进行法律分析"""
     reply = await chat_service.analyze_case_ai(payload.question)
     return ApiResponse(result=ChatResponse(reply=reply, conv_id=0, title=None))
 
@@ -36,11 +40,77 @@ async def contract_review(
     contract_id: int = Query(..., description="合同ID"),
     tasks: BackgroundTasks = None,
 ) -> ApiResponse[ChatResponse]:
-    """AI 合同审查：调用 AI 生成严格 JSON 的审查结果字符串并立即返回；
-    同时在后台根据 JSON 结果异步持久化（若已存在该合同ID记录则先删除后批量新增）。"""
+    """AI 合同审查：调用 AI 返回严格 JSON 格式审查结论字符串作为响应；
+    同时在后台将 JSON 结果异步持久化：若已存在该合同ID记录则删除再插入（逻辑在 service 中处理）"""
     reply = await chat_service.analyze_contract_ai(payload.question)
     if tasks is not None:
         tasks.add_task(contract_review_service.persist_reviews_from_json, contract_id, reply)
     else:
         await contract_review_service.persist_reviews_from_json(contract_id, reply)
     return ApiResponse(result=ChatResponse(reply=reply, conv_id=0, title=None))
+
+
+class DocGenerateRequest(BaseModel):
+    doc_type: str
+    case_id: int = 0
+    facts: str | None = None
+
+
+
+@router.post("/generate_document", response_model=ApiResponse[ChatResponse])
+async def generate_document(
+    payload: DocGenerateRequest,
+    request: Request,
+    tasks: BackgroundTasks = None,
+) -> ApiResponse[ChatResponse]:
+    """生成法律文书：
+    - 参数：文书类型、案件ID、事实案件描述
+    - 逻辑：case_id=0 用 facts；否则查询案件信息并拼接（如有 facts 作为补充）
+    - 输出：第一行文书名称；第二行起为文书内容；不要多余内容
+    - 持久化：返回后异步写入 documents 表
+    """
+    user = getattr(request.state, "current_user", None)
+    user_id = int(user["id"]) if user else None
+
+    case_obj = None
+    if payload.case_id and payload.case_id != 0:
+        try:
+            case_obj = await case_service.get_case_by_id(int(payload.case_id))
+        except Exception:
+            case_obj = None
+    material = chat_service.compose_case_material(case_obj, payload.facts)
+
+    # 调用 AI 生成文书
+    raw_reply = await chat_service.generate_legal_document_ai(payload.doc_type, material)
+
+    # 解析：第一行为文书名称，其余为正文
+    text = (raw_reply or "").strip()
+    # 简单去除可能的代码块包裹
+    if text.startswith("```") and text.endswith("```"):
+        text = text.strip("`\n")
+    lines = [ln.strip() for ln in text.splitlines()]
+    while lines and not lines[0]:
+        lines.pop(0)
+    doc_name = lines[0] if lines else (payload.doc_type or "文书")
+    doc_content = "\n".join(lines[1:]).strip() if len(lines) > 1 else ""
+
+    # 组合返回文本（严格：第一行名称，第二行起正文）
+    final_reply = doc_name + ("\n" + doc_content if doc_content else "")
+
+    # 异步入库
+    data = {
+        "user_id": user_id or 0,
+        "doc_name": doc_name,
+        "doc_type": payload.doc_type,
+        "doc_content": doc_content,
+    }
+    if tasks is not None:
+        tasks.add_task(document_service.create_document, data)
+    else:
+        try:
+            await document_service.create_document(data)
+        except Exception:
+            # 忽略持久化错误，保证主流程返回
+            pass
+
+    return ApiResponse(result=ChatResponse(reply=final_reply, conv_id=0, title=None))

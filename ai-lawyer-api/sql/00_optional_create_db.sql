@@ -73,11 +73,10 @@ CREATE TABLE IF NOT EXISTS contract_review (
 --文书表
 CREATE TABLE IF NOT EXISTS documents (
   id SERIAL PRIMARY KEY,
-  case_id INT NOT NULL,
-  case_name VARCHAR(200),--关联的案件
+  user_id INT NOT NULL,
   doc_name VARCHAR(200) ,--文书名称
   doc_type VARCHAR(100),--文书类型
-  doc_content VARCHAR(300),--文件内容
+  doc_content text,--文件内容
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

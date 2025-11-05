@@ -4,8 +4,7 @@ from datetime import datetime
 
 
 class DocumentBase(BaseModel):
-    case_id: int
-    case_name: Optional[str] = None
+    user_id: int
     doc_name: str
     doc_type: Optional[str] = None
     doc_content: Optional[str] = None
@@ -16,8 +15,7 @@ class DocumentCreate(DocumentBase):
 
 
 class DocumentUpdate(BaseModel):
-    case_id: Optional[int] = None
-    case_name: Optional[str] = None
+    user_id: Optional[int] = None
     doc_name: Optional[str] = None
     doc_type: Optional[str] = None
     doc_content: Optional[str] = None
