@@ -5,6 +5,7 @@ from typing import Dict
 from ..core.ai_client import qwen_client
 from ..schemas.case_schema import CaseExtractResult
 from typing import Any
+from ..schemas.legal_retrieval_schema import LegalRetrievalResult
 
 
 def _normalize_case_json(s: str) -> Dict[str, str]:
@@ -153,6 +154,7 @@ async def analyze_contract_ai(text: str) -> str:
     return _extract_json_block(raw)
 
 
+
 async def generate_legal_document_ai(doc_type: str, case_material: str) -> str:
     """根据案件材料生成指定类型的中文法律文书。
 
@@ -219,3 +221,99 @@ def compose_case_material(case: dict | None, extra_facts: str | None) -> str:
     if extra_facts and extra_facts.strip():
         parts.append(f"补充事实：{extra_facts.strip()}")
     return "\n".join(parts).strip()
+
+
+async def legal_retrieval_ai(text: str) -> str:
+    """
+    法律案件检索：返回包含“相关法律”“相关案件”“律师务实观点”的严格 JSON 结构。
+
+    结构设计（仅输出 JSON 本体，键与字段均为中文）：
+    {
+      "法律集合": [
+        {"法律名称": "", "第几条": "", "法律内容": ""}
+      ],
+      "案件集合": [
+        {"案件名称": "", "时间": "", "案号": "", "案情摘要": "", "判决结果": ""}
+      ],
+      "律师务实观点集合": [
+        {"标题": "", "观点建议": ""}
+      ]
+    }
+
+    规则：
+    - 仅返回上述 JSON 本体，不要任何多余前后缀、说明文字或 Markdown 代码块标记。
+    - 内容以中文表述，尽量准确、简洁；无法确定的字段使用空字符串；对应集合可为空数组。
+    - 法律条文与案件如无法确定具体来源，可给出通用、普适的表述，避免杜撰具体编号。
+    """
+
+    system_prompt = (
+        "你是一名中国法律检索与分析助手。请基于用户提供的问题或案件描述，"
+        "组织输出：相关法律条文、参考案件，以及务实可操作的律师观点建议。\n\n"
+        "严格只输出如下 JSON 结构（键与字段均为中文；集合为空时使用空数组）：\n"
+        "{\n"
+        "  \"法律集合\": [\n"
+        "    {\"法律名称\": \"\", \"第几条\": \"\", \"法律内容\": \"\"}\n"
+        "  ],\n"
+        "  \"案件集合\": [\n"
+        "    {\"案件名称\": \"\", \"时间\": \"\", \"案号\": \"\", \"案情摘要\": \"\", \"判决结果\": \"\"}\n"
+        "  ],\n"
+        "  \"律师务实观点集合\": [\n"
+        "    {\"标题\": \"\", \"观点建议\": \"\"}\n"
+        "  ]\n"
+        "}\n\n"
+        "要求：\n"
+        "- 仅输出 JSON 本体，不要任何解释或多余符号（包括 Markdown 代码块）。\n"
+        "- 内容以中文表达，尽可能准确并可操作；无法确定处留空字符串。\n"
+    )
+
+    messages = [ 
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": text},
+    ]
+
+    raw = await qwen_client.chat(messages)
+    return _extract_json_block(raw)
+
+
+async def legal_retrieval_structured_v2(text: str) -> LegalRetrievalResult:
+    """返回英文字段的结构化对象，直接反序列化。"""
+    system_prompt = (
+        "你是一名中国法律检索与分析助手。请基于用户提供的问题或案件描述，"
+        "组织输出：相关法律条文、参考案件，以及务实可操作的律师观点建议。案件内容要多，详细表述清楚，数据要多点\n\n"
+        "输出 JSON 格式如下（严格遵守结构与字段命名）：\n\n"
+        "{\n"
+        "  \"laws\": [ {\"law_name\": \"\", \"article\": \"\", \"content\": \"\"} ],\n"
+        "  \"cases\": [ {\"case_name\": \"\", \"date\": \"\", \"docket_no\": \"\", \"summary\": \"\", \"judgment\": \"\"} ],\n"
+        "  \"opinions\": [ {\"title\": \"\", \"advice\": \"\"} ]\n"
+        "}\n\n"
+        "字段含义与规则：\n"
+        "- laws：法律集合\n"
+        "- law_name：法律名称（中国法律名称）\n"
+        "- article：章节（第几条）\n"
+        "- content：法律内容（尽量保留原文表达）\n"
+        "- cases：相关案件集合 \n"
+        "- case_name：案件名称\n"
+        "- date：案件时间\n"
+        "- docket_no：案号\n"
+        "- summary：案情摘要，案件事实与理由尽量完整\n"
+        "- judgment：判决结果\n"
+        "- opinions：律师务实观点集合\n"
+        "- title：标题\n"
+        "- advice：关于用户问题的相关法律案件的务实观点建议\n"
+        "严格要求：只输出 JSON 本体，不要输出任何多余文字、注释或代码块标记。"
+    )
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": text+" 的相关法律和相关案件，律师观点建议 "},
+    ]
+    raw = await qwen_client.chat(messages, "qwen3-max")
+    raw_json = _extract_json_block(raw)
+    try:
+        data = json.loads(raw_json)
+    except Exception:
+        data = {}
+    return LegalRetrievalResult(
+        laws=data.get("laws", []),
+        cases=data.get("cases", []),
+        opinions=data.get("opinions", []),
+    )

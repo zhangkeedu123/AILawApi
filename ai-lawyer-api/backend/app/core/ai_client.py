@@ -23,8 +23,13 @@ class QwenClient:
         self.base_url = settings.das_scope_base_url.rstrip("/")
         self.model = settings.default_model
 
-    async def chat(self, messages: list[dict]) -> str:
-        payload = {"model": self.model, "messages": messages}
+    async def chat(self, messages: list[dict], model: str | None = None) -> str:
+        """调用对话接口。
+        - messages: OpenAI/Das Scope 风格消息数组
+        - model: 可选，覆盖默认模型名（settings.default_model）
+        """
+        use_model = (model or self.model)
+        payload = {"model": use_model, "messages": messages}
         url = f"{self.base_url}/chat/completions"
         try:
             resp = await self._client.post(url, json=payload)
@@ -49,4 +54,3 @@ class QwenClient:
 
 
 qwen_client = QwenClient()
-

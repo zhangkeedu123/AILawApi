@@ -12,13 +12,10 @@ router = APIRouter(prefix="/clients", tags=["Client"])
 async def list_clients(
     page_params: PageParams = Depends(),
     name: str | None = Query(None, description="客户名称(模糊)"),
-    type_: str | None = Query(None, alias="type", description="客户类型"),
-    status: str | None = Query(None, description="状态"),
     phone: str | None = Query(None, description="电话(模糊)"),
-    email: str | None = Query(None, description="邮箱(模糊)"),
 ):
     items, total = await client_service.list_clients_service(
-        name=name, type_=type_, status=status, phone=phone, email=email,
+        name=name,  phone=phone, 
         page=page_params.page, page_size=page_params.page_size,
     )
     return ApiResponse(result={"meta": PageMeta(total=total, page=page_params.page, page_size=page_params.page_size), "items": items})

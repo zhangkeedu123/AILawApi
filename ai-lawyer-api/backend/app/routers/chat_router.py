@@ -7,6 +7,7 @@ from ..services import conversation_service, chat_service
 from ..services import contract_review_service
 from ..services import document_service, case_service
 from ..schemas.case_schema import CaseExtractResult
+from ..schemas.legal_retrieval_schema import LegalRetrievalResult
 
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -111,6 +112,21 @@ async def generate_document(
             await document_service.create_document(data)
         except Exception:
             # 忽略持久化错误，保证主流程返回
-            pass
+            pass 
 
-    return ApiResponse(result=ChatResponse(reply=final_reply, conv_id=0, title=None))
+    return ApiResponse(result=ChatResponse(reply=final_reply, conv_id=0, title=None)) 
+
+
+@router.post("/legal_retrieval", response_model=ApiResponse[LegalRetrievalResult])
+async def legal_retrieval(
+    payload: ChatRequest,
+) -> ApiResponse[LegalRetrievalResult]:
+    """法律案件检索：返回严格 JSON 格式，包含三类集合：
+    - 法律集合：法律名称、第几条、法律内容
+    - 案件集合：案件名称、时间、案号、案情摘要、判决结果
+    - 律师务实观点集合：标题、观点建议
+
+    注意：严格只返回 JSON 本体字符串（中文），业务逻辑置于 service。
+    """
+    result = await chat_service.legal_retrieval_structured_v2(payload.question)
+    return ApiResponse(result=result)

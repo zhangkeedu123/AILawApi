@@ -20,13 +20,10 @@ async def list_clients_service(
         skip=skip,
         limit=page_size,
         name=name,
-        type_=type_,
-        status=status,
         phone=phone,
-        email=email,
     )
     total = await client_repo.count(
-        pool, name=name, type_=type_, status=status, phone=phone, email=email
+        pool, name=name,  phone=phone,
     )
     return items, total
 
