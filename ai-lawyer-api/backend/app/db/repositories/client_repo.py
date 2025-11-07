@@ -10,7 +10,7 @@ SELECT_COLUMNS = [
     "phone",
     "address",
     "cases",
-    "sstatus",
+    "status",
     "status_name",
     "created_at",
 ]
@@ -32,11 +32,11 @@ def _build_filters(
         values.append(type_)
         clauses.append(f"type = ${len(values)}")
     if status:
-        # 若传入可转为整数，则按 sstatus 过滤；否则按 status_name 模糊匹配
+        # 若传入可转为整数，则按 status 过滤；否则按 status_name 模糊匹配
         try:
             ival = int(status)
             values.append(ival)
-            clauses.append(f"sstatus = ${len(values)}")
+            clauses.append(f"status = ${len(values)}")
         except Exception:
             values.append(f"%{status}%")
             clauses.append(f"status_name ILIKE ${len(values)}")

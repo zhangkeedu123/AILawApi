@@ -9,8 +9,8 @@ class ClientBase(BaseModel):
     phone: Optional[str] = None
     address: Optional[str] = None
     cases: int = 0
-    sstatus: int = 0
-    status_name: Optional[str] = "未受理"
+    status: int = 0
+    status_name: Optional[str] = "已联系"
 
 
 class ClientCreate(ClientBase):
@@ -23,7 +23,7 @@ class ClientUpdate(BaseModel):
     phone: Optional[str] = None
     address: Optional[str] = None
     cases: Optional[int] = None
-    sstatus: Optional[int] = None
+    status: Optional[int] = None
     status_name: Optional[str] = None
 
 

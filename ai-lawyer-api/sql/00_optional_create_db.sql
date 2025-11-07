@@ -9,8 +9,8 @@ CREATE TABLE IF NOT EXISTS clients (
   phone VARCHAR(50),
   address VARCHAR(50),--地址
   cases INT DEFAULT 0,--案件数量
-  sstatus INT DEFAULT 0,--状态 0 联系中 1已签单
-  status_name VARCHAR(50) DEFAULT '未受理',
+  status INT DEFAULT 0,--状态 0 联系中 1已签单
+  status_name VARCHAR(50) DEFAULT '联系中',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

@@ -12,12 +12,10 @@ router = APIRouter(prefix="/spider-customers", tags=["SpiderCustomer"])
 async def list_spider_customers(
     page_params: PageParams = Depends(),
     name: str | None = Query(None, description="姓名/公司(模糊)"),
-    city: str | None = Query(None, description="城市(模糊)"),
-    platform: str | None = Query(None, description="平台"),
     status: str | None = Query(None, description="状态"),
 ):
     items, total = await spider_service.list_spider_customers_service(
-        name=name, city=city, platform=platform, status=status,
+        name=name,  status=status,
         page=page_params.page, page_size=page_params.page_size,
     )
     return ApiResponse(result={"meta": PageMeta(total=total, page=page_params.page, page_size=page_params.page_size), "items": items})
