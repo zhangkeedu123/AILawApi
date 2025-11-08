@@ -12,12 +12,10 @@ router = APIRouter(prefix="/employees", tags=["Employee"])
 async def list_employees(
     page_params: PageParams = Depends(),
     name: str | None = Query(None, description="姓名(模糊)"),
-    title: str | None = Query(None, description="职称/职位(模糊)"),
     firm_name: str | None = Query(None, description="所属律所(模糊)"),
-    status: str | None = Query(None, description="状态"),
 ):
     items, total = await employee_service.list_employees_service(
-        name=name, title=title, firm_name=firm_name, status=status,
+        name=name,  firm_name=firm_name, 
         page=page_params.page, page_size=page_params.page_size,
     )
     return ApiResponse(result={"meta": PageMeta(total=total, page=page_params.page, page_size=page_params.page_size), "items": items})
@@ -27,27 +25,44 @@ async def list_employees(
 async def get_employee(emp_id: int):
     obj = await employee_service.get_employee_by_id(emp_id)
     if not obj:
-        raise HTTPException(404, "Employee not found")
+        return ApiResponse(status=False, result=None, msg="员工不存在")
     return ApiResponse(result=obj)
 
 
 @router.post("/", response_model=ApiResponse[EmployeeRead])
 async def create_employee(payload: EmployeeCreate):
-    obj = await employee_service.create_employee(payload.model_dump())
-    return ApiResponse(result=obj)
+    try:
+        obj = await employee_service.create_employee(payload.model_dump())
+        if not obj:
+            return ApiResponse(status=False, result=None, msg="创建失败")
+        return ApiResponse(result=obj)
+    except HTTPException as e:
+        detail = getattr(e, "detail", None) or str(e)
+        return ApiResponse(status=False, result=None, msg=str(detail))
+    except Exception:
+        return ApiResponse(status=False, result=None, msg="创建失败")
 
 
 @router.put("/{emp_id}", response_model=ApiResponse[EmployeeRead])
 async def update_employee(emp_id: int, payload: EmployeeUpdate):
-    obj = await employee_service.update_employee(emp_id, payload.model_dump(exclude_unset=True))
-    if not obj:
-        raise HTTPException(404, "Employee not found")
-    return ApiResponse(result=obj)
+    try:
+        obj = await employee_service.update_employee(emp_id, payload.model_dump(exclude_unset=True))
+        if not obj:
+            return ApiResponse(status=False, result=None, msg="员工不存在")
+        return ApiResponse(result=obj)
+    except HTTPException as e:
+        detail = getattr(e, "detail", None) or str(e)
+        return ApiResponse(status=False, result=None, msg=str(detail))
+    except Exception:
+        return ApiResponse(status=False, result=None, msg="更新失败")
 
 
 @router.delete("/{emp_id}", response_model=ApiResponse[bool])
 async def delete_employee(emp_id: int):
-    ok = await employee_service.delete_employee(emp_id)
-    if not ok:
-        raise HTTPException(404, "Employee not found")
-    return ApiResponse(result=True)
+    try:
+        ok = await employee_service.delete_employee(emp_id)
+        if not ok:
+            return ApiResponse(status=False, result=False, msg="员工不存在")
+        return ApiResponse(result=True)
+    except Exception:
+        return ApiResponse(status=False, result=False, msg="删除失败")

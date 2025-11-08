@@ -1,39 +1,38 @@
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple
 import asyncpg
 
 
-TABLE = "employees"
+TABLE = "packages"
 SELECT_COLUMNS = [
     "id",
     "name",
-    "phone",
-    "password",
-    "token",
-    "firm_id",
-    "firm_name",
-    "client_num",
-    "case_num",
+    "content",
     "status",
     "status_name",
+    "money",
+    "day_use_num",
     "created_at",
-    "update_at",
 ]
 
 
 def _build_filters(
     name: Optional[str],
-    firm_name: Optional[str],
-):
+    status: Optional[str],
+) -> Tuple[List[str], List[Any]]:
     clauses: List[str] = []
     values: List[Any] = []
     if name:
         values.append(f"%{name}%")
         clauses.append(f"name ILIKE ${len(values)}")
-    
-    if firm_name:
-        values.append(f"%{firm_name}%")
-        clauses.append(f"firm_name ILIKE ${len(values)}")
-   
+    if status:
+        # 数字按 status 精确匹配；非数字按 status_name 模糊匹配
+        try:
+            ival = int(status)
+            values.append(ival)
+            clauses.append(f"status = ${len(values)}")
+        except Exception:
+            values.append(f"%{status}%")
+            clauses.append(f"status_name ILIKE ${len(values)}")
     return clauses, values
 
 
@@ -41,9 +40,9 @@ async def count(
     pool: asyncpg.Pool,
     *,
     name: Optional[str] = None,
-    firm_name: Optional[str] = None,
+    status: Optional[str] = None,
 ) -> int:
-    clauses, values = _build_filters(name, firm_name)
+    clauses, values = _build_filters(name, status)
     where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     sql = f"SELECT COUNT(*) FROM {TABLE} {where_sql};"
     async with pool.acquire() as conn:
@@ -56,15 +55,17 @@ async def get_all(
     skip: int = 0,
     limit: int = 20,
     name: Optional[str] = None,
-    firm_name: Optional[str] = None,
+    status: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
-    clauses, values = _build_filters(name, firm_name)
+    clauses, values = _build_filters(name, status)
     where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+    offset_idx = len(values) + 1
+    limit_idx = len(values) + 2
     values.extend([skip, limit])
     cols = ", ".join(SELECT_COLUMNS)
     sql = (
         f"SELECT {cols} FROM {TABLE} {where_sql} "
-        f"ORDER BY id DESC OFFSET ${len(values)-1} LIMIT ${len(values)};"
+        f"ORDER BY id DESC OFFSET ${offset_idx} LIMIT ${limit_idx};"
     )
     async with pool.acquire() as conn:
         rows = await conn.fetch(sql, *values)
@@ -116,18 +117,3 @@ async def delete(pool: asyncpg.Pool, id: int) -> bool:
         res = await conn.execute(sql, id)
         return res.upper().startswith("DELETE")
 
-
-# Auth-related helpers
-async def get_by_phone(pool: asyncpg.Pool, phone: str) -> Optional[Dict[str, Any]]:
-    cols = ", ".join(SELECT_COLUMNS)
-    sql = f"SELECT {cols} FROM {TABLE} WHERE phone=$1;"
-    async with pool.acquire() as conn:
-        row = await conn.fetchrow(sql, phone)
-        return dict(row) if row else None
-
-
-async def update_token(pool: asyncpg.Pool, emp_id: int, token_hash: str) -> bool:
-    sql = f"UPDATE {TABLE} SET token=$1 WHERE id=$2;"
-    async with pool.acquire() as conn:
-        res = await conn.execute(sql, token_hash, emp_id)
-        return res.upper().startswith("UPDATE")

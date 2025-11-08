@@ -11,6 +11,7 @@ from .routers.files_router import router as files_router
 from .routers.spider_router import router as spider_router
 from .routers.firm_router import router as firm_router
 from .routers.employee_router import router as employee_router
+from .routers.package_router import router as package_router
 from .routers.auth_router import router as auth_router
 from .schemas.response import ApiResponse
 from .security.auth import get_current_user, set_current_user
@@ -48,6 +49,7 @@ app.include_router(files_router, dependencies=[Depends(get_current_user)])
 app.include_router(spider_router, dependencies=[Depends(get_current_user)])
 app.include_router(firm_router, dependencies=[Depends(get_current_user)])
 app.include_router(employee_router, dependencies=[Depends(get_current_user)])
+app.include_router(package_router, dependencies=[Depends(get_current_user)])
 
 # 认证路由（公开）
 app.include_router(auth_router)
