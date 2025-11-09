@@ -7,6 +7,7 @@ async def list_documents_service(
     *,
     doc_name: Optional[str] = None,
     doc_type: Optional[str] = None,
+    user_id: Optional[int] = None,
     page: int = 1,
     page_size: int = 20,
 ) -> Tuple[List[Dict[str, Any]], int]:
@@ -18,10 +19,9 @@ async def list_documents_service(
         limit=page_size,
         doc_name=doc_name,
         doc_type=doc_type,
+        user_id=user_id,
     )
-    total = await document_repo.count(
-        pool, doc_name=doc_name,  doc_type=doc_type
-    )
+    total = await document_repo.count(pool, doc_name=doc_name, doc_type=doc_type, user_id=user_id)
     return items, total
 
 

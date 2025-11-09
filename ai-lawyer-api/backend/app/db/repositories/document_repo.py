@@ -16,6 +16,7 @@ SELECT_COLUMNS = [
 def _build_filters(
     doc_name: Optional[str],
     doc_type: Optional[str],
+    user_id: Optional[int],
 ):
     clauses: List[str] = []
     values: List[Any] = []
@@ -25,6 +26,9 @@ def _build_filters(
     if doc_type:
         values.append(doc_type)
         clauses.append(f"doc_type = ${len(values)}")
+    if user_id is not None:
+        values.append(int(user_id))
+        clauses.append(f"user_id = ${len(values)}")
  
     return clauses, values
 
@@ -34,8 +38,9 @@ async def count(
     *,
     doc_name: Optional[str] = None,
     doc_type: Optional[str] = None,
+    user_id: Optional[int] = None,
 ) -> int:
-    clauses, values = _build_filters(doc_name,  doc_type)
+    clauses, values = _build_filters(doc_name, doc_type, user_id)
     where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     sql = f"SELECT COUNT(*) FROM {TABLE} {where_sql};"
     async with pool.acquire() as conn:
@@ -49,8 +54,9 @@ async def get_all(
     limit: int = 20,
     doc_name: Optional[str] = None,
     doc_type: Optional[str] = None,
+    user_id: Optional[int] = None,
 ) -> List[Dict[str, Any]]:
-    clauses, values = _build_filters(doc_name, doc_type)
+    clauses, values = _build_filters(doc_name, doc_type, user_id)
     where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     values.extend([skip, limit])
     cols = ", ".join(SELECT_COLUMNS)

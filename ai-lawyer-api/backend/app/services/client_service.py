@@ -10,6 +10,7 @@ async def list_clients_service(
     status: Optional[str] = None,
     phone: Optional[str] = None,
     email: Optional[str] = None,
+    created_user: Optional[int] = None,
     page: int = 1,
     page_size: int = 20,
 ) -> Tuple[List[Dict[str, Any]], int]:
@@ -21,9 +22,10 @@ async def list_clients_service(
         limit=page_size,
         name=name,
         phone=phone,
+        created_user=created_user,
     )
     total = await client_repo.count(
-        pool, name=name,  phone=phone,
+        pool, name=name, phone=phone, created_user=created_user,
     )
     return items, total
 

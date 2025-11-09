@@ -13,6 +13,7 @@ SELECT_COLUMNS = [
     "medium_risk",
     "low_risk",
     "files",
+    "created_user",
     "created_at",
 ]
 
@@ -21,6 +22,7 @@ def _build_filters(
     contract_name: Optional[str],
     type_: Optional[str],
     hasrisk: Optional[str],
+    created_user: Optional[int],
 ) -> Tuple[List[str], List[Any]]:
     clauses: List[str] = []
     values: List[Any] = []
@@ -37,6 +39,10 @@ def _build_filters(
         values.append(hasrisk)
         clauses.append(f"hasrisk = ${len(values)}")
 
+    if created_user is not None:
+        values.append(int(created_user))
+        clauses.append(f"created_user = ${len(values)}")
+
     return clauses, values
 
 
@@ -46,8 +52,9 @@ async def count(
     contract_name: Optional[str] = None,
     type_: Optional[str] = None,
     hasrisk: Optional[str] = None,
+    created_user: Optional[int] = None,
 ) -> int:
-    clauses, values = _build_filters(contract_name, type_, hasrisk)
+    clauses, values = _build_filters(contract_name, type_, hasrisk, created_user)
     where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     sql = f"SELECT COUNT(*) FROM {TABLE} {where_sql};"
     async with pool.acquire() as conn:
@@ -62,8 +69,9 @@ async def get_all(
     contract_name: Optional[str] = None,
     type_: Optional[str] = None,
     hasrisk: Optional[str] = None,
+    created_user: Optional[int] = None,
 ) -> List[Dict[str, Any]]:
-    clauses, values = _build_filters(contract_name, type_, hasrisk)
+    clauses, values = _build_filters(contract_name, type_, hasrisk, created_user)
     where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     offset_idx = len(values) + 1
     limit_idx = len(values) + 2

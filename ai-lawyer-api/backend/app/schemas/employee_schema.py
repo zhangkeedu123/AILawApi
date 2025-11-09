@@ -14,7 +14,7 @@ class EmployeeBase(BaseModel):
     case_num: int = 0
     status: int = 0
     status_name: Optional[str] = "未启用"
-
+    role:int =0
 
 class EmployeeCreate(EmployeeBase):
     pass
@@ -31,7 +31,7 @@ class EmployeeUpdate(BaseModel):
     case_num: Optional[int] = None
     status: Optional[int] = None
     status_name: Optional[str] = None
-
+    role:Optional[int] = None
 
 class EmployeeRead(EmployeeBase):
     id: int

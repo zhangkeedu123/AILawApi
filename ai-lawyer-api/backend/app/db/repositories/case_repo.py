@@ -14,6 +14,7 @@ SELECT_COLUMNS = [
     "files",
     "claims",
     "facts",
+    "created_user",
     "created_at",
 ]
 
@@ -24,6 +25,7 @@ def _build_filters(
     location: Optional[str],
     plaintiff: Optional[str],
     defendant: Optional[str],
+    created_user: Optional[int],
 ):
     clauses: List[str] = []
     values: List[Any] = []
@@ -47,6 +49,9 @@ def _build_filters(
     if defendant:
         values.append(f"%{defendant}%")
         clauses.append(f"defendant ILIKE ${len(values)}")
+    if created_user is not None:
+        values.append(int(created_user))
+        clauses.append(f"created_user = ${len(values)}")
     return clauses, values
 
 
@@ -58,8 +63,9 @@ async def count(
     location: Optional[str] = None,
     plaintiff: Optional[str] = None,
     defendant: Optional[str] = None,
+    created_user: Optional[int] = None,
 ) -> int:
-    clauses, values = _build_filters(name, status, location, plaintiff, defendant)
+    clauses, values = _build_filters(name, status, location, plaintiff, defendant, created_user)
     where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     sql = f"SELECT COUNT(*) FROM {TABLE} {where_sql};"
     async with pool.acquire() as conn:
@@ -76,8 +82,9 @@ async def get_all(
     location: Optional[str] = None,
     plaintiff: Optional[str] = None,
     defendant: Optional[str] = None,
+    created_user: Optional[int] = None,
 ) -> List[Dict[str, Any]]:
-    clauses, values = _build_filters(name, status, location, plaintiff, defendant)
+    clauses, values = _build_filters(name, status, location, plaintiff, defendant, created_user)
     where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     values.extend([skip, limit])
     cols = ", ".join(SELECT_COLUMNS)

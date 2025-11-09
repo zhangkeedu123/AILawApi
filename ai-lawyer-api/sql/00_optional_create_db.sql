@@ -11,7 +11,9 @@ CREATE TABLE IF NOT EXISTS clients (
   cases INT DEFAULT 0,--案件数量
   status INT DEFAULT 0,--状态 0 联系中 1已签单
   status_name VARCHAR(50) DEFAULT '联系中',
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  created_user INT DEFAULT 0,--创建人
+
 );
 
 --案件表
@@ -26,7 +28,8 @@ CREATE TABLE IF NOT EXISTS cases (
   files VARCHAR(2000),--相关文件
   claims VARCHAR(2000),--诉讼请求
   facts TEXT,--事实与理由
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+   created_user INT DEFAULT 0,--创建人
 );
 
 --文件表
@@ -38,7 +41,6 @@ CREATE TABLE IF NOT EXISTS files (
   content text, --文本内容
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-
 --合同表
 CREATE TABLE IF NOT EXISTS contracts (
   id SERIAL PRIMARY KEY,
@@ -49,7 +51,8 @@ CREATE TABLE IF NOT EXISTS contracts (
   medium_risk INT DEFAULT 0,--中风险 
   low_risk INT DEFAULT 0,--低风险
   files VARCHAR(200) ,--文件地址
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  created_user INT DEFAULT 0,--创建人
 );
 
 --合同审查表
@@ -77,7 +80,7 @@ CREATE TABLE IF NOT EXISTS documents (
   doc_name VARCHAR(200) ,--文书名称
   doc_type VARCHAR(100),--文书类型
   doc_content text,--文件内容
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 );
 
 --爬虫客户
@@ -91,7 +94,8 @@ CREATE TABLE IF NOT EXISTS spider_customers (
   status INT DEFAULT 0,--状态 0未联系 1已联系，3.无法联系
   status_name VARCHAR(50) DEFAULT '未联系',
   remark text ,--客户简介
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  created_user INT DEFAULT 0,--创建人
 );
 
 --律所表
@@ -105,7 +109,8 @@ CREATE TABLE IF NOT EXISTS firms (
   status INT DEFAULT 0,--状态 0未启用 1启用，3.套餐余额不足
   status_name VARCHAR(50) DEFAULT '未启用',
   employees INT DEFAULT 0,--员工数
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  role INT DEFAULT 0,--权限 0 普通门店 1 管理员
 );
 
 --员工表
@@ -122,11 +127,9 @@ CREATE TABLE IF NOT EXISTS employees (
   status INT DEFAULT 0,--状态 0未启用 1启用
   status_name VARCHAR(50) DEFAULT '未启用',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  update_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  update_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  role INT DEFAULT 0,--权限 0 员工 1 店长 2 管理员
 );
-
--- 唯一索引：手机号唯一
-CREATE UNIQUE INDEX IF NOT EXISTS uq_employees_phone ON employees(phone);
 
 --套餐表
 CREATE TABLE IF NOT EXISTS packages (
@@ -157,7 +160,7 @@ CREATE TABLE IF NOT EXISTS packages_user (
 -- conversations & messages schema (PK1: BIGSERIAL)
 CREATE TABLE IF NOT EXISTS conversations (
     id          BIGSERIAL PRIMARY KEY,
-    user_id     INT NOT NULL,--用户ID
+    user_id     VARCHAR(128) NOT NULL,--用户ID
     title       VARCHAR(256),--标题
     is_active   BOOLEAN NOT NULL DEFAULT TRUE,--如果超出最大token ： false 不可再继续聊天
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -170,7 +173,7 @@ CREATE INDEX IF NOT EXISTS idx_conversations_user ON conversations(user_id);
 CREATE TABLE IF NOT EXISTS messages (
     id               BIGSERIAL PRIMARY KEY,
     conversation_id  BIGINT ,
-    role             VARCHAR(32) ,     -- 'user' | 'assistant' | 'system'
+    role             VARCHAR(32) ,     -- 'user' | 'assistant'
     content          TEXT ,
     created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

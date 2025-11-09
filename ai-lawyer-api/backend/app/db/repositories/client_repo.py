@@ -12,6 +12,7 @@ SELECT_COLUMNS = [
     "cases",
     "status",
     "status_name",
+    "created_user",
     "created_at",
 ]
 
@@ -55,8 +56,12 @@ async def count(
     status: Optional[str] = None,
     phone: Optional[str] = None,
     email: Optional[str] = None,
+    created_user: Optional[int] = None,
 ) -> int:
     clauses, values = _build_filters(name, type_, status, phone, email)
+    if created_user is not None:
+        values.append(int(created_user))
+        clauses.append(f"created_user = ${len(values)}")
     where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     sql = f"SELECT COUNT(*) FROM {TABLE} {where_sql};"
     async with pool.acquire() as conn:
@@ -73,8 +78,12 @@ async def get_all(
     status: Optional[str] = None,
     phone: Optional[str] = None,
     email: Optional[str] = None,
+    created_user: Optional[int] = None,
 ) -> List[Dict[str, Any]]:
     clauses, values = _build_filters(name, type_, status, phone, email)
+    if created_user is not None:
+        values.append(int(created_user))
+        clauses.append(f"created_user = ${len(values)}")
     where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     values.extend([skip, limit])
     cols = ", ".join(SELECT_COLUMNS)

@@ -8,6 +8,7 @@ async def list_contracts_service(
     contract_name: Optional[str] = None,
     type_: Optional[str] = None,
     hasrisk: Optional[str] = None,
+    created_user: Optional[int] = None,
     page: int = 1,
     page_size: int = 20,
 ) -> Tuple[List[Dict[str, Any]], int]:
@@ -20,12 +21,14 @@ async def list_contracts_service(
         contract_name=contract_name,
         type_=type_,
         hasrisk=hasrisk,
+        created_user=created_user,
     )
     total = await contract_repo.count(
         pool,
         contract_name=contract_name,
         type_=type_,
         hasrisk=hasrisk,
+        created_user=created_user,
     )
     return items, total
 

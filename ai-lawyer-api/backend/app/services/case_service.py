@@ -10,6 +10,7 @@ async def list_cases_service(
     location: Optional[str] = None,
     plaintiff: Optional[str] = None,
     defendant: Optional[str] = None,
+    created_user: Optional[int] = None,
     page: int = 1,
     page_size: int = 20,
 ) -> Tuple[List[Dict[str, Any]], int]:
@@ -24,9 +25,16 @@ async def list_cases_service(
         location=location,
         plaintiff=plaintiff,
         defendant=defendant,
+        created_user=created_user,
     )
     total = await case_repo.count(
-        pool, name=name, status=status, location=location, plaintiff=plaintiff, defendant=defendant
+        pool,
+        name=name,
+        status=status,
+        location=location,
+        plaintiff=plaintiff,
+        defendant=defendant,
+        created_user=created_user,
     )
     return items, total
 

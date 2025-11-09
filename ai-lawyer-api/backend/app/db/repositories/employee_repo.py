@@ -17,12 +17,14 @@ SELECT_COLUMNS = [
     "status_name",
     "created_at",
     "update_at",
+    "role",
 ]
 
 
 def _build_filters(
     name: Optional[str],
     firm_name: Optional[str],
+    firm_id: Optional[str] = None,
 ):
     clauses: List[str] = []
     values: List[Any] = []
@@ -33,6 +35,9 @@ def _build_filters(
     if firm_name:
         values.append(f"%{firm_name}%")
         clauses.append(f"firm_name ILIKE ${len(values)}")
+    if firm_id:
+        values.append(str(firm_id))
+        clauses.append(f"firm_id = ${len(values)}")
    
     return clauses, values
 
@@ -42,8 +47,9 @@ async def count(
     *,
     name: Optional[str] = None,
     firm_name: Optional[str] = None,
+    firm_id: Optional[str] = None,
 ) -> int:
-    clauses, values = _build_filters(name, firm_name)
+    clauses, values = _build_filters(name, firm_name, firm_id)
     where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     sql = f"SELECT COUNT(*) FROM {TABLE} {where_sql};"
     async with pool.acquire() as conn:
@@ -57,8 +63,9 @@ async def get_all(
     limit: int = 20,
     name: Optional[str] = None,
     firm_name: Optional[str] = None,
+    firm_id: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
-    clauses, values = _build_filters(name, firm_name)
+    clauses, values = _build_filters(name, firm_name, firm_id)
     where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     values.extend([skip, limit])
     cols = ", ".join(SELECT_COLUMNS)

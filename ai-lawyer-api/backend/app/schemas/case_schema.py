@@ -13,7 +13,7 @@ class CaseBase(BaseModel):
     files: Optional[str] = None
     claims: Optional[str] = None
     facts: Optional[str] = None
-
+    created_user:Optional[str] = None
 
 class CaseCreate(CaseBase):
     pass
@@ -29,7 +29,7 @@ class CaseUpdate(BaseModel):
     files: Optional[str] = None
     claims: Optional[str] = None
     facts: Optional[str] = None
-
+    created_user:Optional[str] = None
 
 class CaseRead(CaseBase):
     id: int

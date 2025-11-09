@@ -15,6 +15,7 @@ async def list_employees_service(
     *,
     name: Optional[str] = None,
     firm_name: Optional[str] = None,
+    firm_id: Optional[str] = None,
     page: int = 1,
     page_size: int = 20,
 ) -> Tuple[List[Dict[str, Any]], int]:
@@ -26,9 +27,10 @@ async def list_employees_service(
         limit=page_size,
         name=name,
         firm_name=firm_name,
+        firm_id=firm_id,
     )
     total = await employee_repo.count(
-        pool, name=name,  firm_name=firm_name, 
+        pool, name=name, firm_name=firm_name, firm_id=firm_id,
     )
     return items, total
 

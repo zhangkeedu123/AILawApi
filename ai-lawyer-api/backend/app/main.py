@@ -12,9 +12,11 @@ from .routers.spider_router import router as spider_router
 from .routers.firm_router import router as firm_router
 from .routers.employee_router import router as employee_router
 from .routers.package_router import router as package_router
+from .routers.package_user_router import router as package_user_router
 from .routers.auth_router import router as auth_router
 from .schemas.response import ApiResponse
 from .security.auth import get_current_user, set_current_user
+from .services.package_user_cron import start_package_user_cron, stop_package_user_cron
 
 app = FastAPI(title="AI Lawyer Backend", version="0.1.0")
 
@@ -31,11 +33,14 @@ def root():
 @app.on_event("startup")
 async def on_startup():
     await init_pg_pool()
+    # 启动套餐订阅状态日更定时任务（每日 01:00 执行）
+    start_package_user_cron()
 
 # ✅ 关闭时释放连接池
 @app.on_event("shutdown")
 async def on_shutdown():
     await close_pg_pool()
+    stop_package_user_cron()
 
 # ✅ 挂载新路由
 app.include_router(chat_router, dependencies=[Depends(set_current_user)])
@@ -50,6 +55,7 @@ app.include_router(spider_router, dependencies=[Depends(get_current_user)])
 app.include_router(firm_router, dependencies=[Depends(get_current_user)])
 app.include_router(employee_router, dependencies=[Depends(get_current_user)])
 app.include_router(package_router, dependencies=[Depends(get_current_user)])
+app.include_router(package_user_router, dependencies=[Depends(get_current_user)])
 
 # 认证路由（公开）
 app.include_router(auth_router)
