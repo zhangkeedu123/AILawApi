@@ -1,5 +1,5 @@
 import asyncio
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple, AsyncGenerator
 
 from ..db.db import get_pg_pool
 from ..db.repositories import conversations_repo, messages_repo, summaries_repo
@@ -124,3 +124,58 @@ async def ask(user_id: int, question: str, conv_id: int = 0) -> Tuple[str, int, 
             pass
 
         return reply, 0, None
+
+
+async def ask_stream(
+    user_id: int,
+    question: str,
+    conv_id: int = 0,
+) -> AsyncGenerator[Dict, None]:
+    """流式问答：产出事件字典，包含 meta/delta/done。
+    - 首个事件：{"type": "meta", "conv_id": <int>, "title": <str|None>}
+    - 中间事件：{"type": "delta", "text": <str>}
+    - 结束事件：{"type": "done"}
+    """
+    pool = await get_pg_pool()
+
+    async def _stream_for(conv_id_local: int, title_local: Optional[str]):
+        msgs = await _compose_msgs(pool, conv_id_local, question)
+        # 预先写入用户消息（避免异常导致丢失）
+        if conv_id_local:
+            await messages_repo.insert_message(pool, conv_id_local, "user", question)
+        full = []
+        try:
+            async for chunk in qwen_client.chat_stream(msgs):
+                full.append(chunk)
+                yield {"type": "delta", "text": chunk}
+        finally:
+            reply_text = "".join(full)
+            if conv_id_local:
+                await messages_repo.insert_message(pool, conv_id_local, "assistant", reply_text)
+                try:
+                    if await _should_trigger_summary(pool, conv_id_local):
+                        asyncio.create_task(recompute_summary(conv_id_local))
+                except Exception:
+                    pass
+            yield {"type": "done"}
+
+    # 新建会话分支：为了让前端尽早拿到 conv_id，先创建会话并返回 meta
+    if not conv_id:
+        title = (question or "").strip()[:10] or "请创建标题"
+        conv = await conversations_repo.create(pool, user_id, title)
+        new_id = int(conv["id"])
+        # 记录用户第一条消息
+        await messages_repo.insert_message(pool, new_id, "user", question)
+        # meta 事件
+        yield {"type": "meta", "conv_id": new_id, "title": title}
+        # 开始流式调用
+        async for ev in _stream_for(new_id, title):
+            yield ev
+        return
+
+    # 已有会话分支：加锁，发 meta，再流式
+    lock = _lock_for(conv_id)
+    async with lock:
+        yield {"type": "meta", "conv_id": conv_id, "title": None}
+        async for ev in _stream_for(conv_id, None):
+            yield ev

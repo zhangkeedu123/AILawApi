@@ -16,7 +16,7 @@ class ContractBase(BaseModel):
     medium_risk: int = 0
     low_risk: int = 0
     files: Optional[str] = None
-    created_user: Optional[str] = None
+    created_user: Optional[int] = None
     model_config = ConfigDict(populate_by_name=True)
 
 

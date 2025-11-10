@@ -47,16 +47,16 @@ def _encode_jwt(payload: dict, expires_delta: timedelta) -> str:
     return jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 
-def create_access_token(*, sub: str, phone: str, fp: str) -> str:
+def create_access_token(*, sub: str, phone: str,role: str, fp: str) -> str:
     return _encode_jwt(
-        {"sub": sub, "phone": phone, "type": "access", "fp": fp},
+        {"sub": sub, "phone": phone,"role": role, "type": "access", "fp": fp},
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRES_MIN),
     )
 
 
-def create_refresh_token(*, sub: str, phone: str, fp: str) -> str:
+def create_refresh_token(*, sub: str, phone: str,role: str, fp: str) -> str:
     return _encode_jwt(
-        {"sub": sub, "phone": phone, "type": "refresh", "fp": fp},
+        {"sub": sub, "phone": phone,"role": role, "type": "refresh", "fp": fp},
         expires_delta=timedelta(days=REFRESH_TOKEN_EXPIRES_DAYS),
     )
 

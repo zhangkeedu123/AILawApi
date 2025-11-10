@@ -1,4 +1,6 @@
 from fastapi import APIRouter, Request, Query, BackgroundTasks
+from fastapi.responses import StreamingResponse
+import json
 from pydantic import BaseModel
 
 from ..schemas.conversation import ChatRequest, ChatResponse
@@ -19,6 +21,34 @@ async def chat_endpoint(payload: ChatRequest, request: Request) -> ApiResponse[C
     user_id = int(user["id"]) if user else None
     reply, cid, title = await conversation_service.ask(user_id, payload.question, payload.conv_id or 0)
     return ApiResponse(result=ChatResponse(reply=reply, conv_id=cid, title=title))
+
+
+@router.post("/stream")
+async def chat_stream_endpoint(payload: ChatRequest, request: Request):
+    """流式输出对话结果（SSE）。
+    - 请求体与非流式接口相同（ChatRequest）
+    - 响应为 `text/event-stream`，事件：meta/delta/done
+    """
+    user = getattr(request.state, "current_user", None)
+    user_id = int(user["id"]) if user else 0
+
+    async def event_gen():
+        async for ev in conversation_service.ask_stream(user_id, payload.question, payload.conv_id or 0):
+            typ = ev.get("type")
+            if typ == "meta":
+                yield f"event: meta\ndata: {json.dumps({'conv_id': ev.get('conv_id'), 'title': ev.get('title')})}\n\n"
+            elif typ == "delta":
+                # 文本增量
+                yield f"event: delta\ndata: {json.dumps({'text': ev.get('text') or ''})}\n\n"
+            elif typ == "done":
+                yield "event: done\ndata: {}\n\n"
+
+    headers = {
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no",
+    }
+    return StreamingResponse(event_gen(), media_type="text/event-stream", headers=headers)
 
 
 @router.post("/analyze", response_model=ApiResponse[ChatResponse])

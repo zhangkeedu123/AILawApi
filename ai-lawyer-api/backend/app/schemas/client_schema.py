@@ -11,7 +11,7 @@ class ClientBase(BaseModel):
     cases: int = 0
     status: int = 0
     status_name: Optional[str] = "已联系"
-    created_user: Optional[str] = None
+    created_user: Optional[int] = None
 
 class ClientCreate(ClientBase):
     pass
@@ -25,7 +25,7 @@ class ClientUpdate(BaseModel):
     cases: Optional[int] = None
     status: Optional[int] = None
     status_name: Optional[str] = None
-    created_user: Optional[str] = None
+    created_user: Optional[int] = None
 
 class ClientRead(ClientBase):
     id: int

@@ -85,7 +85,7 @@ async def list_files(
 async def get_file(file_id: int, user: dict = Depends(get_current_user)):
     obj = await files_service.get_file_by_id(file_id)
     if not obj or (obj.get("user_id") and int(obj["user_id"]) != int(user["id"])):
-        raise HTTPException(404, "File not found")
+        return ApiResponse(msg="文件不存在", status=False)
     return ApiResponse(result=_attach_urls(obj))
 
 
@@ -142,11 +142,11 @@ async def extract_file_content(
     - 不支持：图片、加密 PDF，复杂版式效果有限
     """
     if not upload.filename:
-        raise HTTPException(400, "缺少文件名")
+        return ApiResponse(msg="缺少文件名", status=False)
 
     data = await upload.read()
     if not data:
-        raise HTTPException(400, "空文件")
+        return ApiResponse(msg="空文件", status=False)
 
     try:
         text = files_service.extract_file_text(
@@ -168,7 +168,7 @@ async def extract_file_content(
 async def update_file(file_id: int, payload: FileUpdate, user: dict = Depends(get_current_user)):
     obj = await files_service.get_file_by_id(file_id)
     if not obj or (obj.get("user_id") and int(obj["user_id"]) != int(user["id"])):
-        raise HTTPException(404, "File not found")
+        return ApiResponse(msg="文文件不存在", status=False)
     updated = await files_service.update_file(file_id, payload.model_dump(exclude_unset=True))
     return ApiResponse(result=_attach_urls(updated) if updated else updated)
 
@@ -185,7 +185,7 @@ async def download_file(
     """
     obj = await files_service.get_file_by_id(file_id)
     if not obj or (obj.get("user_id") and int(obj["user_id"]) != int(user["id"])):
-        raise HTTPException(404, "File not found")
+        return ApiResponse(msg="文文件不存在", status=False)
 
     rel = (obj.get("doc_url") or "").lstrip("/\\")
     if rel.startswith("files/"):
@@ -195,7 +195,8 @@ async def download_file(
 
     # 路径校验与存在性检查
     if not str(abs_path).startswith(str(files_root)) or not abs_path.exists():
-        raise HTTPException(404, "File not found")
+        return ApiResponse(msg="文件路径不存在", status=False)
+    
 
     # 猜测内容类型，默认二进制
     media_type = mimetypes.guess_type(abs_path.name)[0] or "application/octet-stream"
@@ -222,7 +223,8 @@ async def get_file_html(
 ):
     obj = await files_service.get_file_by_id(file_id)
     if not obj or (obj.get("user_id") and int(obj["user_id"]) != int(user["id"])):
-        raise HTTPException(404, "File not found")
+        ##raise HTTPException(404, "File not found")
+        return ApiResponse(msg="只能选择自己创建的合同", status=False)
     try:
         html = await files_service.get_file_as_html(file_id, mode=mode)
     except files_service.UnsupportedFileType:
@@ -238,7 +240,7 @@ async def get_file_html(
 async def update_file_from_html(file_id: int, payload: FileHtmlPayload, user: dict = Depends(get_current_user)):
     obj = await files_service.get_file_by_id(file_id)
     if not obj or (obj.get("user_id") and int(obj["user_id"]) != int(user["id"])):
-        raise HTTPException(404, "File not found")
+        return ApiResponse(msg="文件不存在", status=False)
     try:
         updated = await files_service.update_file_with_html(file_id, payload.html)
     except files_service.DependencyMissing:
@@ -246,7 +248,7 @@ async def update_file_from_html(file_id: int, payload: FileHtmlPayload, user: di
     except files_service.FileExtractError:
         return ApiResponse(msg="写回失败", status=False)
     if not updated:
-        raise HTTPException(404, "File not found")
+        return ApiResponse(msg="操作失败", status=False)
     return ApiResponse(result=updated)
 
 
@@ -254,7 +256,7 @@ async def update_file_from_html(file_id: int, payload: FileHtmlPayload, user: di
 async def delete_file(file_id: int, user: dict = Depends(get_current_user)):
     obj = await files_service.get_file_by_id(file_id)
     if not obj or (obj.get("user_id") and int(obj["user_id"]) != int(user["id"])):
-        raise HTTPException(404, "File not found")
+        return ApiResponse(msg="文件不存在", status=False)
 
     # 先尝试删除磁盘文件
     try:
@@ -271,6 +273,6 @@ async def delete_file(file_id: int, user: dict = Depends(get_current_user)):
 
     ok = await files_service.delete_file(file_id)
     if not ok:
-        raise HTTPException(404, "File not found")
+        return ApiResponse(msg="操作失败", status=False)
     return ApiResponse(result=True)
 

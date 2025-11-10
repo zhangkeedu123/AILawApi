@@ -34,8 +34,8 @@ async def register(payload: RegisterRequest, request: Request) -> ApiResponse[To
     new_id = await employee_repo.create(pool, emp_data)
 
     fp = device_fingerprint(request)
-    access = create_access_token(sub=str(new_id), phone=payload.phone, fp=fp)
-    refresh = create_refresh_token(sub=str(new_id), phone=payload.phone, fp=fp)
+    access = create_access_token(sub=str(new_id), phone=payload.phone,role=payload.role, fp=fp)
+    refresh = create_refresh_token(sub=str(new_id), phone=payload.phone,role=payload.role, fp=fp)
 
     # 将 refresh token 的哈希存入 employees.token
     await employee_repo.update_token(pool, new_id, hash_password(refresh))
@@ -53,11 +53,11 @@ async def login(payload: LoginRequest, request: Request) -> ApiResponse[TokenPai
         raise HTTPException(status_code=401, detail="签名失败")
 
     fp = device_fingerprint(request)
-    access = create_access_token(sub=str(user["id"]), phone=user["phone"], fp=fp)
-    refresh = create_refresh_token(sub=str(user["id"]), phone=user["phone"], fp=fp)
+    access = create_access_token(sub=str(user["id"]), phone=user["phone"],role=user["role"], fp=fp)
+    refresh = create_refresh_token(sub=str(user["id"]), phone=user["phone"],role=user["role"], fp=fp)
 
     await employee_repo.update_token(pool, int(user["id"]), hash_password(refresh))
-    return ApiResponse(result=TokenPair(access_token=access, refresh_token=refresh))
+    return ApiResponse(result=TokenPair(access_token=access, refresh_token=refresh,role=user["role"]))
 
 
 @router.post("/refresh", response_model=ApiResponse[TokenPair])
@@ -90,13 +90,18 @@ async def refresh_token(request: Request, refresh_token: str) -> ApiResponse[Tok
         raise HTTPException(status_code=401, detail="Refresh token not recognized")
 
     # 颁发新对
-    access = create_access_token(sub=str(user["id"]), phone=user["phone"], fp=fp_now)
-    new_refresh = create_refresh_token(sub=str(user["id"]), phone=user["phone"], fp=fp_now)
+    access = create_access_token(sub=str(user["id"]), phone=user["phone"],role=user["role"], fp=fp_now)
+    new_refresh = create_refresh_token(sub=str(user["id"]), phone=user["phone"],role=user["role"], fp=fp_now)
     await employee_repo.update_token(pool, int(user["id"]), hash_password(new_refresh))
     return ApiResponse(result=TokenPair(access_token=access, refresh_token=new_refresh))
 
 
 @router.get("/me", response_model=ApiResponse[MeResponse])
 async def me(current_user: dict = Depends(get_current_user)) -> ApiResponse[MeResponse]:
-    return ApiResponse(result=MeResponse(id=current_user["id"], name=current_user.get("name"), phone=current_user.get("phone")))
+    return ApiResponse(result=MeResponse(
+        id=current_user["id"], 
+        name=current_user.get("name"),
+          phone=current_user.get("phone"),
+          role=current_user.get("role")
+          ))
 
