@@ -58,3 +58,9 @@ async def bulk_update_status_by_expiry() -> int:
     """根据到期时间批量更新所有套餐订阅的状态与名称。"""
     pool = await get_pg_pool()
     return await package_user_repo.update_all_status_by_expiry(pool)
+
+
+async def reset_all_day_used() -> int:
+    """每日重置所有套餐的当日已用次数。"""
+    pool = await get_pg_pool()
+    return await package_user_repo.reset_all_day_used(pool)

@@ -18,6 +18,7 @@ async def init_pg_pool() -> asyncpg.Pool:
             min_size=2,
             max_size=20,
             command_timeout=60,
+            max_inactive_connection_lifetime=300,
         )
     return _pg_pool
 

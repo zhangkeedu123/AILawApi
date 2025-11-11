@@ -61,7 +61,7 @@ def create_refresh_token(*, sub: str, phone: str,role: str, fp: str) -> str:
     )
 
 
-auth_scheme = HTTPBearer()
+auth_scheme = HTTPBearer() 
 
 
 async def get_current_user(request: Request, creds: HTTPAuthorizationCredentials = Depends(auth_scheme)) -> dict:
@@ -71,7 +71,7 @@ async def get_current_user(request: Request, creds: HTTPAuthorizationCredentials
     except jwt.PyJWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
     if payload.get("type") != "access":
-        raise HTTPException(status_code=401, detail="Invalid access token")
+        raise HTTPException(status_code=401, detail="Invalid access token") 
     # fingerprint check
     fp_claim = payload.get("fp")
     if not fp_claim or fp_claim != device_fingerprint(request):

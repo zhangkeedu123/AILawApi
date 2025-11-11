@@ -8,7 +8,10 @@ _cron_task: Optional[asyncio.Task] = None
 
 
 async def _update_status_job():
+    # 先按到期时间刷新状态
     await package_user_service.bulk_update_status_by_expiry()
+    # 每日重置当日使用次数
+    await package_user_service.reset_all_day_used()
 
 
 def _seconds_until_next_1am(now: datetime | None = None) -> float:

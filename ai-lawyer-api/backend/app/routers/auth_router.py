@@ -3,6 +3,7 @@ from ..schemas.auth_schema import RegisterRequest, LoginRequest, TokenPair, MeRe
 from ..schemas.response import ApiResponse
 from ..db.db import get_pg_pool
 from ..db.repositories import employee_repo
+from ..db.repositories import firm_repo
 from ..security.auth import (
     hash_password,
     verify_password,
@@ -49,6 +50,19 @@ async def login(payload: LoginRequest, request: Request) -> ApiResponse[TokenPai
     user = await employee_repo.get_by_phone(pool, payload.phone)
     if not user or not user.get("password"):
         raise HTTPException(status_code=401, detail="验证失败")
+    # 账号/律所启用状态校验
+    try:
+        if int(user.get("status") or 0) == 0:
+            raise HTTPException(status_code=401, detail="账号未启用")
+    except Exception:
+        # 非法状态值，按未启用处理
+        raise HTTPException(status_code=401, detail="账号未启用")
+
+    firm_id = user.get("firm_id")
+    if firm_id is not None:
+        firm = await firm_repo.get_by_id(pool, int(firm_id))
+        if firm and int(firm.get("status") or 0) == 0:
+            raise HTTPException(status_code=401, detail="账号未启用")
     if not verify_password(payload.password, user["password"]):
         raise HTTPException(status_code=401, detail="签名失败")
 
@@ -57,7 +71,7 @@ async def login(payload: LoginRequest, request: Request) -> ApiResponse[TokenPai
     refresh = create_refresh_token(sub=str(user["id"]), phone=user["phone"],role=user["role"], fp=fp)
 
     await employee_repo.update_token(pool, int(user["id"]), hash_password(refresh))
-    return ApiResponse(result=TokenPair(access_token=access, refresh_token=refresh,role=user["role"]))
+    return ApiResponse(result=TokenPair(access_token=access, refresh_token=refresh))
 
 
 @router.post("/refresh", response_model=ApiResponse[TokenPair])
@@ -75,6 +89,7 @@ async def refresh_token(request: Request, refresh_token: str) -> ApiResponse[Tok
     emp_id = int(payload.get("sub"))
     fp_claim = payload.get("fp")
     fp_now = device_fingerprint(request)
+    
     if not fp_claim or fp_claim != fp_now:
         raise HTTPException(status_code=401, detail="Refresh token fingerprint mismatch")
 
@@ -82,6 +97,19 @@ async def refresh_token(request: Request, refresh_token: str) -> ApiResponse[Tok
     user = await employee_repo.get_by_id(pool, emp_id)
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
+
+    # 账号/律所启用状态校验（未启用不允许刷新）
+    try:
+        if int(user.get("status") or 0) == 0:
+            raise HTTPException(status_code=401, detail="账号未启用")
+    except Exception:
+        raise HTTPException(status_code=401, detail="账号未启用")
+
+    firm_id = user.get("firm_id")
+    if firm_id is not None:
+        firm = await firm_repo.get_by_id(pool, int(firm_id))
+        if firm and int(firm.get("status") or 0) == 0:
+            raise HTTPException(status_code=401, detail="账号未启用")
 
     # 校验 refresh token 与 DB 中哈希
     stored_hash = user.get("token") or ""
@@ -104,4 +132,3 @@ async def me(current_user: dict = Depends(get_current_user)) -> ApiResponse[MeRe
           phone=current_user.get("phone"),
           role=current_user.get("role")
           ))
-

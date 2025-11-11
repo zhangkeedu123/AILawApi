@@ -28,7 +28,7 @@ app.add_middleware(
 
 @app.get("/", response_model=ApiResponse[dict])
 def root():
-    return ApiResponse(result={"service": "AI Lawyer Backend"})
+    return ApiResponse(result={"service": "AI Lawyer Backend"}) 
 # ✅ 启动时初始化 asyncpg 连接池
 @app.on_event("startup")
 async def on_startup():

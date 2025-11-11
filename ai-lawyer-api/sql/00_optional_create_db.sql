@@ -153,7 +153,8 @@ CREATE TABLE IF NOT EXISTS packages_user (
   day_use_num INT DEFAULT 0,--每日可使用的次数
   expiry_date TIMESTAMP  NOT NULL ,--到期时间
   money  DECIMAL(10,2)    DEFAULT 0,--支付金额
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  day_used_num INT DEFAULT 0,--每日已使用的次数
 );
 
 --回话历史记录组

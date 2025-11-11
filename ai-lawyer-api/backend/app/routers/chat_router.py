@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, Query, BackgroundTasks
+from fastapi import APIRouter, Request, Query, BackgroundTasks, HTTPException
 from fastapi.responses import StreamingResponse
 import json
 from pydantic import BaseModel
@@ -6,6 +6,8 @@ from pydantic import BaseModel
 from ..schemas.conversation import ChatRequest, ChatResponse
 from ..schemas.response import ApiResponse
 from ..services import conversation_service, chat_service
+from ..db.db import get_pg_pool
+from ..db.repositories import package_user_repo
 from ..services import contract_review_service
 from ..services import document_service, case_service
 from ..schemas.case_schema import CaseExtractResult
@@ -19,6 +21,7 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 async def chat_endpoint(payload: ChatRequest, request: Request) -> ApiResponse[ChatResponse]:
     user = getattr(request.state, "current_user", None)
     user_id = int(user["id"]) if user else None
+    await _ensure_ai_quota_and_consume(request)
     reply, cid, title = await conversation_service.ask(user_id, payload.question, payload.conv_id or 0)
     return ApiResponse(result=ChatResponse(reply=reply, conv_id=cid, title=title))
 
@@ -29,8 +32,11 @@ async def chat_stream_endpoint(payload: ChatRequest, request: Request):
     - 请求体与非流式接口相同（ChatRequest）
     - 响应为 `text/event-stream`，事件：meta/delta/done
     """
-    user = getattr(request.state, "current_user", None)
+    user = getattr(request.state, "current_user", None) 
     user_id = int(user["id"]) if user else 0
+
+    # 进入流式生成前做额度校验与消耗
+    await _ensure_ai_quota_and_consume(request)
 
     async def event_gen():
         async for ev in conversation_service.ask_stream(user_id, payload.question, payload.conv_id or 0):
@@ -52,15 +58,17 @@ async def chat_stream_endpoint(payload: ChatRequest, request: Request):
 
 
 @router.post("/analyze", response_model=ApiResponse[ChatResponse])
-async def analyze_case(payload: ChatRequest) -> ApiResponse[ChatResponse]:
+async def analyze_case(payload: ChatRequest, request: Request) -> ApiResponse[ChatResponse]:
     """直接调用 AI 进行法律分析"""
+    await _ensure_ai_quota_and_consume(request)
     reply = await chat_service.analyze_case_ai(payload.question)
     return ApiResponse(result=ChatResponse(reply=reply, conv_id=0, title=None))
 
 
 @router.post("/extract_case", response_model=ApiResponse[CaseExtractResult])
-async def extract_case_info(payload: ChatRequest) -> ApiResponse[CaseExtractResult]:
+async def extract_case_info(payload: ChatRequest, request: Request) -> ApiResponse[CaseExtractResult]:
     """通过 service 使用 AI 提取案件信息，返回结构化字段。"""
+    await _ensure_ai_quota_and_consume(request)
     result = await chat_service.extract_case_info_ai(payload.question)
     return ApiResponse(result=result)
 
@@ -68,11 +76,13 @@ async def extract_case_info(payload: ChatRequest) -> ApiResponse[CaseExtractResu
 @router.post("/contract_review", response_model=ApiResponse[ChatResponse])
 async def contract_review(
     payload: ChatRequest,
+    request: Request,
     contract_id: int = Query(..., description="合同ID"),
     tasks: BackgroundTasks = None,
 ) -> ApiResponse[ChatResponse]:
     """AI 合同审查：调用 AI 返回严格 JSON 格式审查结论字符串作为响应；
     同时在后台将 JSON 结果异步持久化：若已存在该合同ID记录则删除再插入（逻辑在 service 中处理）"""
+    await _ensure_ai_quota_and_consume(request)
     reply = await chat_service.analyze_contract_ai(payload.question)
     if tasks is not None:
         tasks.add_task(contract_review_service.persist_reviews_from_json, contract_id, reply)
@@ -111,7 +121,8 @@ async def generate_document(
             case_obj = None
     material = chat_service.compose_case_material(case_obj, payload.facts)
 
-    # 调用 AI 生成文书
+    # 调用 AI 生成文书（先额度校验）
+    await _ensure_ai_quota_and_consume(request)
     raw_reply = await chat_service.generate_legal_document_ai(payload.doc_type, material)
 
     # 解析：第一行为文书名称，其余为正文
@@ -150,6 +161,7 @@ async def generate_document(
 @router.post("/legal_retrieval", response_model=ApiResponse[LegalRetrievalResult])
 async def legal_retrieval(
     payload: ChatRequest,
+    request: Request,
 ) -> ApiResponse[LegalRetrievalResult]:
     """法律案件检索：返回严格 JSON 格式，包含三类集合：
     - 法律集合：法律名称、第几条、法律内容
@@ -158,5 +170,29 @@ async def legal_retrieval(
 
     注意：严格只返回 JSON 本体字符串（中文），业务逻辑置于 service。
     """
+    await _ensure_ai_quota_and_consume(request)
     result = await chat_service.legal_retrieval_structured_v2(payload.question)
     return ApiResponse(result=result)
+
+
+async def _ensure_ai_quota_and_consume(request: Request) -> None:
+    """检查套餐是否有效、当日次数是否用尽；若可用则原子+1计数。"""
+    user = getattr(request.state, "current_user", None)
+    if not user:
+        raise HTTPException(status_code=401, detail="未登录")
+    firm_id = user.get("firm_id")
+    if not firm_id:
+        raise HTTPException(status_code=403, detail="缺少律所信息")
+    pool = await get_pg_pool()
+    pkg = await package_user_repo.get_active_latest_by_firm(pool, int(firm_id))
+    if not pkg:
+        raise HTTPException(status_code=403, detail="套餐已到期，继续使用请联系管理员")
+    # 双重保险：本地校验一次额度
+    day_use = int(pkg.get("day_use_num") or 0)
+    day_used = int(pkg.get("day_used_num") or 0)
+    if day_use != 0 and day_used >= day_use:
+        raise HTTPException(status_code=403, detail="当日次数已用完")
+    # 原子消耗 1 次
+    ok = await package_user_repo.try_consume_one(pool, int(pkg["id"]))
+    if not ok:
+        raise HTTPException(status_code=403, detail="当日次数已用完")

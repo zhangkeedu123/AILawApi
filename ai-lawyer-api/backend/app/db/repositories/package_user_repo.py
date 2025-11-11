@@ -12,6 +12,7 @@ BASE_COLUMNS = [
     "pu.status",
     "pu.status_name",
     "pu.day_use_num",
+    "pu.day_used_num",
     "pu.expiry_date",
     "pu.money",
     "pu.created_at",
@@ -134,6 +135,7 @@ async def create(pool: asyncpg.Pool, data: Dict[str, Any]) -> int:
         "status",
         "status_name",
         "day_use_num",
+        "day_used_num",
         "expiry_date",
         "money",
     ]
@@ -156,6 +158,7 @@ async def update(pool: asyncpg.Pool, id: int, data: Dict[str, Any]) -> bool:
         "status",
         "status_name",
         "day_use_num",
+        "day_used_num",
         "expiry_date",
         "money",
     ]
@@ -179,6 +182,46 @@ async def delete(pool: asyncpg.Pool, id: int) -> bool:
     async with pool.acquire() as conn:
         res = await conn.execute(sql, id)
         return res.upper().startswith("DELETE")
+
+
+async def get_active_latest_by_firm(pool: asyncpg.Pool, firms_id: int) -> Optional[Dict[str, Any]]:
+    """获取某律所当前有效（未到期）的最新套餐订阅一条。"""
+    cols = ", ".join(BASE_COLUMNS)
+    sql = (
+        f"SELECT {cols} FROM {TABLE} pu "
+        "JOIN packages p ON p.id = pu.packages_id "
+        "JOIN firms f ON f.id = pu.firms_id "
+        "WHERE pu.firms_id=$1 AND pu.status=0 AND pu.expiry_date > NOW() "
+        "ORDER BY pu.expiry_date DESC, pu.id DESC LIMIT 1;"
+    )
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(sql, int(firms_id))
+        return dict(row) if row else None
+
+
+async def try_consume_one(pool: asyncpg.Pool, row_id: int) -> Optional[Dict[str, Any]]:
+    """在当日额度内原子+1；支持 day_use_num=0 表示不限制。
+    成功返回更新后的关键信息；失败返回 None。
+    """
+    sql = (
+        "UPDATE packages_user SET day_used_num = day_used_num + 1 "
+        "WHERE id=$1 AND status=0 AND expiry_date > NOW() AND (day_use_num = 0 OR day_used_num < day_use_num) "
+        "RETURNING id, day_use_num, day_used_num, expiry_date, status, firms_id;"
+    )
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(sql, int(row_id))
+        return dict(row) if row else None
+
+
+async def reset_all_day_used(pool: asyncpg.Pool) -> int:
+    """重置所有套餐的当日已用次数为 0。"""
+    sql = "UPDATE packages_user SET day_used_num = 0;"
+    async with pool.acquire() as conn:
+        res = await conn.execute(sql)
+        try:
+            return int(str(res).split()[-1])
+        except Exception:
+            return 0
 
 
 async def update_all_status_by_expiry(pool: asyncpg.Pool) -> int:

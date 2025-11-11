@@ -17,7 +17,7 @@ class TokenPair(BaseModel):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
-    role :int
+    role : Optional[int] = None
 
 
 class MeResponse(BaseModel):
