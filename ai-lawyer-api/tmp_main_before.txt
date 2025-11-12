@@ -13,12 +13,6 @@ from .routers.firm_router import router as firm_router
 from .routers.employee_router import router as employee_router
 from .routers.package_router import router as package_router
 from .routers.package_user_router import router as package_user_router
-# content 相关路由
-from .routers.content.content_idea_router import router as content_idea_router
-from .routers.content.content_style_router import router as content_style_router
-from .routers.content.content_template_router import router as content_template_router
-from .routers.content.content_prompt_router import router as content_prompt_router
-from .routers.content.content_router import router as content_router
 from .routers.auth_router import router as auth_router
 from .schemas.response import ApiResponse
 from .security.auth import get_current_user, set_current_user
@@ -35,24 +29,20 @@ app.add_middleware(
 @app.get("/", response_model=ApiResponse[dict])
 def root():
     return ApiResponse(result={"service": "AI Lawyer Backend"}) 
-# ✅ 启动时初始化 asyncpg 连接池
-@app.on_event("startup")
+# �?启动时初始化 asyncpg 连接�?@app.on_event("startup")
 async def on_startup():
     await init_pg_pool()
-    # 启动套餐订阅状态日更定时任务（每日 01:00 执行）
-    start_package_user_cron()
+    # 启动套餐订阅状态日更定时任务（每日 01:00 执行�?    start_package_user_cron()
 
-# ✅ 关闭时释放连接池
+# �?关闭时释放连接池
 @app.on_event("shutdown")
 async def on_shutdown():
     await close_pg_pool()
     stop_package_user_cron()
 
-# ✅ 挂载新路由
-app.include_router(chat_router, dependencies=[Depends(set_current_user)])
+# �?挂载新路�?app.include_router(chat_router, dependencies=[Depends(set_current_user)])
 app.include_router(conversations_router, dependencies=[Depends(set_current_user)])
-# 注册路由（统一鉴权）
-app.include_router(client_router, dependencies=[Depends(get_current_user)])
+# 注册路由（统一鉴权�?app.include_router(client_router, dependencies=[Depends(get_current_user)])
 app.include_router(case_router, dependencies=[Depends(get_current_user)])
 app.include_router(contract_router, dependencies=[Depends(get_current_user)])
 app.include_router(document_router, dependencies=[Depends(get_current_user)])
@@ -62,11 +52,6 @@ app.include_router(firm_router, dependencies=[Depends(get_current_user)])
 app.include_router(employee_router, dependencies=[Depends(get_current_user)])
 app.include_router(package_router, dependencies=[Depends(get_current_user)])
 app.include_router(package_user_router, dependencies=[Depends(get_current_user)])
-app.include_router(content_idea_router, dependencies=[Depends(get_current_user)])
-app.include_router(content_style_router, dependencies=[Depends(get_current_user)])
-app.include_router(content_template_router, dependencies=[Depends(get_current_user)])
-app.include_router(content_prompt_router, dependencies=[Depends(get_current_user)])
-app.include_router(content_router, dependencies=[Depends(get_current_user)])
 
-# 认证路由（公开）
-app.include_router(auth_router)
+# 认证路由（公开�?app.include_router(auth_router)
+
