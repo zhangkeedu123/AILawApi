@@ -12,9 +12,13 @@ from ..services import contract_review_service
 from ..services import document_service, case_service
 from ..schemas.case_schema import CaseExtractResult
 from ..schemas.legal_retrieval_schema import LegalRetrievalResult
+from ..services.content import content_generate_service, content_prompt_service
 
 
 router = APIRouter(prefix="/chat", tags=["chat"])
+
+
+
 
 
 @router.post("", response_model=ApiResponse[ChatResponse])
@@ -173,6 +177,45 @@ async def legal_retrieval(
     await _ensure_ai_quota_and_consume(request)
     result = await chat_service.legal_retrieval_structured_v2(payload.question)
     return ApiResponse(result=result)
+
+
+@router.post("/generate_content_by_prompt", response_model=ApiResponse[dict])
+async def generate_content_by_prompt(
+    request: Request,
+    prompt_id: int = Query(..., description="content_prompts 表ID"),
+    tasks: BackgroundTasks = None,
+):
+    """基于 content_prompts 的 filled_prompt 生成营销成稿（异步生成并入库 contents）。
+    - 进入前做额度校验与消耗
+    - 立即返回成功，后台流式生成并入库
+    - 非管理员仅可使用自己创建的 prompt
+    """
+    # 额度校验与消耗（与其他接口一致）
+    await _ensure_ai_quota_and_consume(request)
+    
+    user = getattr(request.state, "current_user", None)
+    if not user:
+        raise HTTPException(status_code=401, detail="未登录")
+    user_id = int(user.get("id") or 0)
+    role = int(user.get("role") or 0)
+
+    
+
+    # 权限校验：非管理员只能操作自己的 prompt
+    prompt = await content_prompt_service.get_by_id(int(prompt_id))
+    if not prompt:
+        return ApiResponse(status=False, msg="Item not found")
+    if role != 2 and int(prompt.get("employees_id") or 0) != user_id:
+        return ApiResponse(status=False, msg="Item not found")
+
+    # 异步生成并入库
+    if tasks is not None:
+        tasks.add_task(content_generate_service.generate_and_persist_by_prompt_id, int(prompt_id), user_id)
+    else:
+        import asyncio
+        asyncio.create_task(content_generate_service.generate_and_persist_by_prompt_id(int(prompt_id), user_id))
+
+    return ApiResponse(result={"accepted": True})
 
 
 async def _ensure_ai_quota_and_consume(request: Request) -> None:

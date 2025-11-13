@@ -232,6 +232,7 @@ CREATE TABLE IF NOT EXISTS content_templates (
 CREATE TABLE IF NOT EXISTS content_prompts (
   id             SERIAL PRIMARY KEY,
   filled_prompt  VARCHAR(1000),                       -- 最终投喂模型的提示词
+  title     VARCHAR(200)  NULL,   --标题
   employees_id   INT,  --用户id
   created_at     TIMESTAMP DEFAULT NOW()
 );
