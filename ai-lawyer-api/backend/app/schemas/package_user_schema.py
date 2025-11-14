@@ -10,6 +10,7 @@ class PackageUserBase(BaseModel):
     status: int = 0
     status_name: Optional[str] = "未到期"
     day_use_num: int = 0
+    day_used_num: int = 0
     expiry_date: datetime
     money: Decimal | float = Decimal("0.00")
 
