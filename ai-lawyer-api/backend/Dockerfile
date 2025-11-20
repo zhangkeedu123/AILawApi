@@ -1,4 +1,5 @@
-FROM python:3.12
+FROM registry.aliyuncs.com/python/python:3.12
+
 
 WORKDIR /app
 
