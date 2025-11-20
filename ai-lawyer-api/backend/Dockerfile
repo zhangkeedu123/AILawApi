@@ -2,9 +2,13 @@ FROM python:3.12
 
 WORKDIR /app
 
-# 换 Debian 清华源
-RUN sed -i 's@deb.debian.org@deb.debian.org.cn@g; s@security.debian.org@deb.debian.org.cn@g' \
-    /etc/apt/sources.list.d/debian.sources
+# 使用清华源替换 Debian Bookworm 官方源（python:3.12 的 apt 结构是 debian.sources）
+RUN echo "Types: deb deb-src
+URIs: https://mirrors.tuna.tsinghua.edu.cn/debian/
+Suites: bookworm bookworm-updates bookworm-backports
+Components: main contrib non-free non-free-firmware
+Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg" \
+    > /etc/apt/sources.list.d/debian.sources
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
