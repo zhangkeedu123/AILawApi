@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS clients (
   status INT DEFAULT 0,--状态 0 联系中 1已签单
   status_name VARCHAR(50) DEFAULT '联系中',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  created_user INT DEFAULT 0,--创建人
+  created_user INT DEFAULT 0--创建人
 
 );
 
@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS cases (
   claims VARCHAR(2000),--诉讼请求
   facts TEXT,--事实与理由
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-   created_user INT DEFAULT 0,--创建人
+   created_user INT DEFAULT 0--创建人
 );
 
 --文件表
@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS contracts (
   low_risk INT DEFAULT 0,--低风险
   files VARCHAR(200) ,--文件地址
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  created_user INT DEFAULT 0,--创建人
+  created_user INT DEFAULT 0--创建人
 );
 
 --合同审查表
@@ -80,7 +80,7 @@ CREATE TABLE IF NOT EXISTS documents (
   doc_name VARCHAR(200) ,--文书名称
   doc_type VARCHAR(100),--文书类型
   doc_content text,--文件内容
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 --爬虫客户
@@ -95,7 +95,7 @@ CREATE TABLE IF NOT EXISTS spider_customers (
   status_name VARCHAR(50) DEFAULT '未联系',
   remark text ,--客户简介
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  created_user INT DEFAULT 0,--创建人
+  created_user INT DEFAULT 0--创建人
 );
 
 --律所表
@@ -110,7 +110,7 @@ CREATE TABLE IF NOT EXISTS firms (
   status_name VARCHAR(50) DEFAULT '未启用',
   employees INT DEFAULT 0,--员工数
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  role INT DEFAULT 0,--权限 0 普通门店 1 管理员
+  role INT DEFAULT 0--权限 0 普通门店 1 管理员
 );
 
 --员工表
@@ -128,7 +128,7 @@ CREATE TABLE IF NOT EXISTS employees (
   status_name VARCHAR(50) DEFAULT '未启用',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   update_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  role INT DEFAULT 0,--权限 0 员工 1 店长 2 管理员
+  role INT DEFAULT 0--权限 0 员工 1 店长 2 管理员
 );
 
 --套餐表
@@ -154,7 +154,7 @@ CREATE TABLE IF NOT EXISTS packages_user (
   expiry_date TIMESTAMP  NOT NULL ,--到期时间
   money  DECIMAL(10,2)    DEFAULT 0,--支付金额
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  day_used_num INT DEFAULT 0,--每日已使用的次数
+  day_used_num INT DEFAULT 0--每日已使用的次数
 );
 
 --回话历史记录组
