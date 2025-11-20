@@ -233,6 +233,10 @@ async def get_file_html(
         return ApiResponse(msg="缺少依赖", status=False)
     except files_service.FileExtractError as e:
         return ApiResponse(msg=f"转换失败: {e}", status=False)
+    try:
+        html = files_service._inject_default_css(html)  # type: ignore[attr-defined]
+    except Exception:
+        pass
     return ApiResponse(result=html)
  
 

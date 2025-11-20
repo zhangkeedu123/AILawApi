@@ -371,7 +371,7 @@ async def get_file_as_html(file_id: int, mode: str = "semantic") -> str:
             raise DependencyMissing(f"mammoth 加载失败: {e}")
         with open(abs_path, "rb") as f:
             result = mammoth.convert_to_html(f)
-        html = result.value or ""
+        html = result.value or "" 
         return html
 
     if suffix == ".pdf":
