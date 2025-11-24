@@ -23,6 +23,7 @@ from .routers.auth_router import router as auth_router
 from .schemas.response import ApiResponse
 from .security.auth import get_current_user, set_current_user
 from .services.package_user_cron import start_package_user_cron, stop_package_user_cron
+from .routers.open_router import router as open_router
 
 app = FastAPI(title="AI Lawyer Backend", version="0.1.0")
 
@@ -70,3 +71,5 @@ app.include_router(content_router, dependencies=[Depends(get_current_user)])
 
 # 认证路由（公开）
 app.include_router(auth_router)
+# （公开）路由
+app.include_router(open_router)
