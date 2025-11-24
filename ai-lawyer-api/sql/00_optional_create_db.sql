@@ -26,8 +26,8 @@ CREATE TABLE IF NOT EXISTS cases (
   status INT DEFAULT 0,--状态 0未受理 1已受理，3.已结案
   status_name VARCHAR(50) DEFAULT '未受理',
   files VARCHAR(2000),--相关文件
-  claims VARCHAR(2000),--诉讼请求
-  facts TEXT,--事实与理由
+  claims VARCHAR(2000),--案件描述
+  facts TEXT,--分析结果
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
    created_user INT DEFAULT 0,--创建人
 );

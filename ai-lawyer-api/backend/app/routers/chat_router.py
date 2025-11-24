@@ -1,6 +1,7 @@
+import asyncio
+import json
 from fastapi import APIRouter, Request, Query, BackgroundTasks, HTTPException
 from fastapi.responses import StreamingResponse
-import json
 from pydantic import BaseModel
 
 from ..schemas.conversation import ChatRequest, ChatResponse
@@ -61,12 +62,35 @@ async def chat_stream_endpoint(payload: ChatRequest, request: Request):
     return StreamingResponse(event_gen(), media_type="text/event-stream", headers=headers)
 
 
-@router.post("/analyze", response_model=ApiResponse[ChatResponse])
-async def analyze_case(payload: ChatRequest, request: Request) -> ApiResponse[ChatResponse]:
-    """直接调用 AI 进行法律分析"""
+@router.post("/analyze")
+async def analyze_case(payload: ChatRequest, request: Request):
+    """法律分析改为 SSE：delta 流式返回，done 时异步落库案件"""
+    user = getattr(request.state, "current_user", None)
+    user_id = int(user["id"]) if user else 0
+
+    # 进入流式生成前做额度校验与消耗
     await _ensure_ai_quota_and_consume(request)
-    reply = await chat_service.analyze_case_ai(payload.question)
-    return ApiResponse(result=ChatResponse(reply=reply, conv_id=0, title=None))
+
+    async def event_gen():
+        chunks: list[str] = []
+        try:
+            # 流式向前端推送增量
+            async for part in chat_service.analyze_case_stream(payload.question):
+                chunks.append(part)
+                yield f"event: delta\ndata: {json.dumps({'text': part})}\n\n"
+        finally:
+            full_text = "".join(chunks)
+            # done 事件返回完整文本，前端可一次性拿到最终结果
+            yield f"event: done\ndata: {json.dumps({'text': full_text})}\n\n"
+            # done 后异步写入案件信息，避免阻塞 SSE
+            asyncio.create_task(_persist_case_from_analysis(payload.question, full_text, user_id))
+
+    headers = {
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "X-Accel-Buffering": "no",
+    }
+    return StreamingResponse(event_gen(), media_type="text/event-stream", headers=headers)
 
 
 @router.post("/extract_case", response_model=ApiResponse[CaseExtractResult])
@@ -239,3 +263,23 @@ async def _ensure_ai_quota_and_consume(request: Request) -> None:
     ok = await package_user_repo.try_consume_one(pool, int(pkg["id"]))
     if not ok:
         raise HTTPException(status_code=403, detail="当日次数已用完")
+
+
+
+async def _persist_case_from_analysis(question: str, analysis_text: str, user_id: int) -> None:
+    """done 后异步写入 cases 核心字段，失败不影响 SSE"""
+    try:
+        extract = await chat_service.extract_case_info_ai(analysis_text)
+        name = (extract.name).strip()[:30] or "未命名案件"
+        claims = (question).strip()[:2000]
+        facts = (analysis_text or "").strip()
+        data = {
+            "name": name,
+            "claims": claims,
+            "facts": facts,
+            "created_user": user_id or 0,
+        }
+        await case_service.create_case(data)
+    except Exception:
+        # 写入失败不阻塞主流程
+        pass

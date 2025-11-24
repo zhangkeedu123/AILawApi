@@ -31,3 +31,25 @@ services:
     dns:
       - 8.8.8.8
       - 223.5.5.5
+
+  onlyoffice:
+    image: onlyoffice/documentserver:latest
+    container_name: onlyoffice
+    restart: always
+    ports:
+      - "8080:80"
+    environment:
+      - JWT_ENABLED=true
+      - JWT_SECRET=ZjS2mNT5nQZV1TJsIRxI3yLEm8ejnqD5
+      - JWT_INBOX_ENABLED=true
+      - JWT_INBOX_SECRET=ZjS2mNT5nQZV1TJsIRxI3yLEm8ejnqD5
+      - JWT_OUTBOX_ENABLED=true
+      - JWT_OUTBOX_SECRET=ZjS2mNT5nQZV1TJsIRxI3yLEm8ejnqD5
+      - allowPrivateIPAddress=true
+      - allowMetaIPAddress=true
+      - LANG=zh-ch
+    volumes:
+      - ./onlyoffice/data:/var/www/onlyoffice/Data
+      - ./onlyoffice/logs:/var/log/onlyoffice
+      - ./onlyoffice/lib:/var/lib/onlyoffice
+   
