@@ -412,3 +412,110 @@ def generate_onlyoffice_token(config: dict):
 
 
 
+@router.get("/office/config/{file_id}", response_model=ApiResponse[dict])
+async def get_office_config(
+    file_id: int,
+    user: dict = Depends(get_current_user),
+):
+    """
+    返回 ONLYOFFICE 在线编辑器配置
+    """
+
+    # 1. 查询文件，只能访问自己的文件
+    obj = await files_service.get_file_by_id(file_id)
+    if not obj or int(obj["user_id"]) != int(user["id"]):
+        return ApiResponse(msg="只能选择自己创建的合同", status=False)
+
+    # 2. 拼接真实路径
+    abs_path = files_service._safe_join_file_path(obj["doc_url"])
+    if not abs_path.exists():
+        return ApiResponse(msg="文件不存在", status=False)
+
+    filename = abs_path.name
+    file_ext = abs_path.suffix.replace(".", "").lower()  # pdf/docx ??
+
+    def _infer_doc_type(ext: str) -> str:
+        # ONLYOFFICE documentType: word / cell / slide / pdf / diagram
+        for doc_type, exts in _DOC_TYPE_MAP.items():
+            if ext in exts:
+                return doc_type
+        return "word"
+
+    doc_type = _infer_doc_type(file_ext)
+
+    # 3. DocumentServer ??????????? ??? backend:8000?
+    #    ?????????? URL??? DocumentServer ????
+    proxy_base = "http://backend:8000"   # ? ? docker-compose ???????
+
+    # 4. key：文件版本号（mtime）
+    file_key = f"{file_id}_{int(abs_path.stat().st_mtime)}"
+
+    # 5. 先构造“将要签名”的 config（注意：这里就用最终的 URL，不再改它！）
+    #    file_token 直接用一个新的 JWT，供 file-proxy 校验用
+    #    为了简单，就拿同一个 token，当 BOTH config.token + file_token 用
+    base_config = {
+        "document": {
+            "fileType": file_ext,
+            "title": filename,
+            "key": file_key,
+            # 这里先不带 query，待会拼上 file_token
+            # 真正用于签名的是“最终版”，所以要一起算
+            # url 占位，后面填完整的再签名
+        },
+        "documentType": doc_type,
+        "editorConfig": {
+            # 只预览的话不用回调，先简单点
+            "mode": "view",
+            "lang": "zh-CN", 
+            "customization": {
+            "about": True,          # 隐藏关于（你截图里的整块 logo + 公司信息页）
+            "info": False,
+            "feedback": False,       # 隐藏反馈按钮
+            "help": False,           # 隐藏帮助
+            "customer": False,       # 隐藏左下角客户信息
+            "chat": False,           # 隐藏聊天
+            "comments": False,       # 隐藏评论
+            "hideRightMenu": False   # 隐藏右侧菜单
+           
+        }
+        }
+    }
+
+    # 6. 生成 file_token（供 file-proxy 解）
+    #   注意：这里的 payload 用的是 base_config + 一个占位 url，后面会替换
+    #   关键点：token 只要能被 decode，内部你不在意它的 url，
+    #          file-proxy 只是用它做“ONLYOFFICE 的访问票”
+    payload_for_token = {
+        "payload": base_config,
+        "exp": datetime.utcnow() + timedelta(hours=5),
+    }
+    file_token = jwt.encode(payload_for_token, ONLYOFFICE_SECRET, algorithm="HS256")
+
+    # 7. 真正的文件 URL（最终版，包含 file_token）
+    file_url = f"{proxy_base}/open/office/file-proxy/{file_id}?token={file_token}"
+
+    # 8. 把最终 URL 填回 config，然后再生成“给 ONLYOFFICE 用的 token”
+    final_config = {
+        **base_config,
+        "document": {
+            **base_config["document"],
+            "url": file_url,   # 这里是最终 URL
+        },
+    }
+
+    token_for_onlyoffice = generate_onlyoffice_token(final_config)
+
+    final_config["token"] = token_for_onlyoffice
+
+    return ApiResponse(result=final_config)
+
+
+def generate_onlyoffice_token(config: dict):
+    # 注意：exp 必须是 int 时间戳，放在同一层
+    payload = config.copy()
+    payload["exp"] = int((datetime.utcnow() + timedelta(hours=5)).timestamp())
+
+    return jwt.encode(payload, ONLYOFFICE_SECRET, algorithm="HS256")
+
+
+
