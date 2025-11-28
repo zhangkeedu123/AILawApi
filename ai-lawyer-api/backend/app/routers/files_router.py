@@ -336,8 +336,7 @@ async def get_office_config(
     doc_type = _infer_doc_type(file_ext)
 
  
-    #proxy_base = "http://backend:8000"   # ? ? docker-compose ???????
-    proxy_base = "https://huilvai.com/api" 
+    proxy_base = "http://backend:8000"   # ? ? docker-compose ???????
 
     # 4. key：文件版本号（mtime）
     file_key = f"{file_id}_{int(abs_path.stat().st_mtime)}"
