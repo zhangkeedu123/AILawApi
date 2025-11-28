@@ -14,3 +14,5 @@ __pycache__/
 /ai-lawyer-api/onlyoffice/logs/documentserver/converter/out.log
 /ai-lawyer-api/onlyoffice/logs/documentserver/docservice/out.log
 /ai-lawyer-api/onlyoffice/logs/documentserver/nginx.error.log
+/ai-lawyer-api/onlyoffice/lib/documentserver/App_Data/cache/files/data
+/ai-lawyer-api/.env
