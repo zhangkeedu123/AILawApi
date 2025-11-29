@@ -48,6 +48,7 @@ services:
       - allowPrivateIPAddress=true
       - allowMetaIPAddress=true
       - LANG=zh-ch
+      - DS_CORS_ORIGIN=http://localhost:5173,https://huilvai.com
     volumes:
       - ./onlyoffice/data:/var/www/onlyoffice/Data
       - ./onlyoffice/logs:/var/log/onlyoffice
