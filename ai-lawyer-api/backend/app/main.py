@@ -7,6 +7,7 @@ from .routers.client_router import router as client_router
 from .routers.case_router import router as case_router
 from .routers.contract_router import router as contract_router
 from .routers.document_router import router as document_router
+from .routers.document_template_router import router as document_template_router
 from .routers.files_router import router as files_router
 from .routers.spider_router import router as spider_router
 from .routers.firm_router import router as firm_router
@@ -57,6 +58,7 @@ app.include_router(client_router, dependencies=[Depends(get_current_user)])
 app.include_router(case_router, dependencies=[Depends(get_current_user)])
 app.include_router(contract_router, dependencies=[Depends(get_current_user)])
 app.include_router(document_router, dependencies=[Depends(get_current_user)])
+app.include_router(document_template_router, dependencies=[Depends(get_current_user)])
 app.include_router(files_router, dependencies=[Depends(get_current_user)])
 app.include_router(spider_router, dependencies=[Depends(get_current_user)])
 app.include_router(firm_router, dependencies=[Depends(get_current_user)])

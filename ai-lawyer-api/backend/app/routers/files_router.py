@@ -362,7 +362,7 @@ async def get_office_config(
             "mode": "view",
             "lang": "zh-CN", 
             "customization": {
-            "about": True,          # 隐藏关于（你截图里的整块 logo + 公司信息页）
+            "about": False,          # 隐藏关于（你截图里的整块 logo + 公司信息页）
             "info": False,
             "feedback": False,       # 隐藏反馈按钮
             "help": False,           # 隐藏帮助

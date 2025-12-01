@@ -367,3 +367,650 @@ INSERT INTO contents (employees_id, title, body_md, keywords, reading_level, ton
 
 
 --营销内容创作相关
+
+--文书模板相关
+
+
+
+-- 1. 建表
+CREATE TABLE IF NOT EXISTS document_template (
+    id          SERIAL PRIMARY KEY,
+    name        VARCHAR(255) NOT NULL,--文书名称
+    p_id        INTEGER,--父级id
+    url         VARCHAR(500),--地址
+    is_template BOOLEAN NOT NULL DEFAULT TRUE,--是否是模板
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP--创建时间
+);
+
+
+-- ==============================================
+-- 一、插入一级分类
+-- ==============================================
+INSERT INTO document_template (name, p_id, is_template) VALUES
+    ('民商事', 0, FALSE),
+    ('执行', 0, FALSE),
+    ('普通行政', 0, FALSE),
+    ('刑事自诉', 0, FALSE),
+    ('知识产权民事', 0, FALSE),
+    ('知识产权行政', 0, FALSE),
+    ('环境资源', 0, FALSE),
+    ('国家赔偿', 0, FALSE),
+    ('海事', 0, FALSE);
+
+-- ==============================================
+-- 二、插入二级分类
+-- ==============================================
+
+-- 民商事
+INSERT INTO document_template (name, p_id, is_template)
+SELECT v.name, t.id, FALSE
+FROM (VALUES 
+    ('离婚纠纷'),('民间借贷纠纷'),('金融借款合同纠纷'),('买卖合同纠纷'),('劳动争议纠纷'),
+    ('机动车交通事故责任纠纷'),('银行信用卡纠纷'),('物业服务合同纠纷'),('财产损失保险合同纠纷'),
+    ('证券虚假陈述责任纠纷'),('保证保险合同纠纷'),('融资租赁合同纠纷'),('房屋买卖合同纠纷'),
+    ('房屋租赁合同纠纷'),('建设工程施工合同纠纷'),('人身保险合同纠纷'),('责任保险合同纠纷')
+) AS v(name)
+CROSS JOIN document_template t WHERE t.name = '民商事';
+
+-- 执行（严格按您给的9项）
+INSERT INTO document_template (name, p_id, is_template)
+SELECT v.name, t.id, FALSE
+FROM (VALUES 
+    ('强制执行申请书'),
+    ('暂时解除乘坐飞机、高铁限制措施申请书'),
+    ('参与分配申请书'),
+    ('执行担保申请书'),
+    ('确认优先购买权申请书'),
+    ('执行异议申请书'),
+    ('执行复议申请书'),
+    ('执行监督申请书'),
+    ('申请不予执行仲裁裁决、调解书或公证债权文书申请书')
+) AS v(name)
+CROSS JOIN document_template t WHERE t.name = '执行';
+
+-- 普通行政
+INSERT INTO document_template (name, p_id, is_template)
+SELECT v.name, t.id, FALSE
+FROM (VALUES 
+    ('行政处罚'),('行政强制执行'),('行政许可'),('国有土地上房屋征收决定'),
+    ('工伤保险资格或者待遇认定'),('政府信息公开'),('行政复议'),('行政协议'),
+    ('行政补偿'),('行政赔偿'),('不履行法定职责'),('行政答辩状')
+) AS v(name)
+CROSS JOIN document_template t WHERE t.name = '普通行政';
+
+-- 刑事自诉
+INSERT INTO document_template (name, p_id, is_template)
+SELECT v.name, t.id, FALSE
+FROM (VALUES ('侮辱案'),('诽谤案'),('重婚案'),('拒不执行判决')) AS v(name)
+CROSS JOIN document_template t WHERE t.name = '刑事自诉';
+
+-- 知识产权民事
+INSERT INTO document_template (name, p_id, is_template)
+SELECT v.name, t.id, FALSE
+FROM (VALUES 
+    ('侵害商标权纠纷'),('侵害发明专利权纠纷'),('侵害外观设计专利权纠纷'),
+    ('侵害植物新品种权纠纷'),('侵害著作权及邻接权纠纷'),('技术合同纠纷'),
+    ('不正当竞争纠纷'),('垄断纠纷民事'),('侵害商业秘密纠纷')
+) AS v(name)
+CROSS JOIN document_template t WHERE t.name = '知识产权民事';
+
+-- 知识产权行政
+INSERT INTO document_template (name, p_id, is_template)
+SELECT v.name, t.id, FALSE
+FROM (VALUES 
+    ('商标申请驳回复审纠纷'),('商标撤销复审行政纠纷'),('商标无效行政纠纷'),
+    ('专利申请驳回复审行政纠纷'),('专利无效行政纠纷'),('垄断纠纷行政')
+) AS v(name)
+CROSS JOIN document_template t WHERE t.name = '知识产权行政';
+
+-- 环境资源
+INSERT INTO document_template (name, p_id, is_template)
+SELECT v.name, t.id, FALSE
+FROM (VALUES 
+    ('环境污染民事公益诉讼'),('生态破坏民事公益诉讼'),('生态环境损害赔偿诉讼')
+) AS v(name)
+CROSS JOIN document_template t WHERE t.name = '环境资源';
+
+-- 国家赔偿
+INSERT INTO document_template (name, p_id, is_template)
+SELECT v.name, t.id, FALSE
+FROM (VALUES 
+    ('违法刑事拘留赔偿'),('刑事改判无罪赔偿'),
+    ('怠于履行监管职责致伤致死赔偿'),('错误执行赔偿')
+) AS v(name)
+CROSS JOIN document_template t WHERE t.name = '国家赔偿';
+
+-- 海事
+INSERT INTO document_template (name, p_id, is_template)
+SELECT v.name, t.id, FALSE
+FROM (VALUES 
+    ('船舶碰撞损害责任纠纷'),('海上、通海水域人身损害责任纠纷'),
+    ('海上、通海水域货运代理合同纠纷'),('船员劳务合同纠纷')
+) AS v(name)
+CROSS JOIN document_template t WHERE t.name = '海事';
+
+-- ==============================================
+-- 三、插入三级文书（共 196 条）
+-- ==============================================
+
+-- ★★★ 民商事（17 项 × 4 = 68 条）★★★
+
+-- 离婚纠纷
+WITH p AS (SELECT id FROM document_template WHERE name = '离婚纠纷' AND p_id = (SELECT id FROM document_template WHERE name = '民商事'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '离婚纠纷答辩状.docx', id, '/templates/divorce/defense.docx', TRUE FROM p UNION ALL
+SELECT '离婚纠纷答辩状实例.docx', id, '/templates/divorce/defense_example.docx', FALSE FROM p UNION ALL
+SELECT '离婚纠纷起诉状.docx', id, '/templates/divorce/complaint.docx', TRUE FROM p UNION ALL
+SELECT '离婚纠纷起诉状实例.docx', id, '/templates/divorce/complaint_example.docx', FALSE FROM p;
+
+-- 民间借贷纠纷
+WITH p AS (SELECT id FROM document_template WHERE name = '民间借贷纠纷' AND p_id = (SELECT id FROM document_template WHERE name = '民商事'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '民间借贷纠纷答辩状.docx', id, '/templates/loan/defense.docx', TRUE FROM p UNION ALL
+SELECT '民间借贷纠纷答辩状实例.docx', id, '/templates/loan/defense_example.docx', FALSE FROM p UNION ALL
+SELECT '民间借贷纠纷起诉状.docx', id, '/templates/loan/complaint.docx', TRUE FROM p UNION ALL
+SELECT '民间借贷纠纷起诉状实例.docx', id, '/templates/loan/complaint_example.docx', FALSE FROM p;
+
+-- 金融借款合同纠纷
+WITH p AS (SELECT id FROM document_template WHERE name = '金融借款合同纠纷' AND p_id = (SELECT id FROM document_template WHERE name = '民商事'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '金融借款合同纠纷答辩状.docx', id, '/templates/finance_loan/defense.docx', TRUE FROM p UNION ALL
+SELECT '金融借款合同纠纷答辩状实例.docx', id, '/templates/finance_loan/defense_example.docx', FALSE FROM p UNION ALL
+SELECT '金融借款合同纠纷起诉状.docx', id, '/templates/finance_loan/complaint.docx', TRUE FROM p UNION ALL
+SELECT '金融借款合同纠纷起诉状实例.docx', id, '/templates/finance_loan/complaint_example.docx', FALSE FROM p;
+
+-- 买卖合同纠纷
+WITH p AS (SELECT id FROM document_template WHERE name = '买卖合同纠纷' AND p_id = (SELECT id FROM document_template WHERE name = '民商事'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '买卖合同纠纷答辩状.docx', id, '/templates/sale/defense.docx', TRUE FROM p UNION ALL
+SELECT '买卖合同纠纷答辩状实例.docx', id, '/templates/sale/defense_example.docx', FALSE FROM p UNION ALL
+SELECT '买卖合同纠纷起诉状.docx', id, '/templates/sale/complaint.docx', TRUE FROM p UNION ALL
+SELECT '买卖合同纠纷起诉状实例.docx', id, '/templates/sale/complaint_example.docx', FALSE FROM p;
+
+-- 劳动争议纠纷
+WITH p AS (SELECT id FROM document_template WHERE name = '劳动争议纠纷' AND p_id = (SELECT id FROM document_template WHERE name = '民商事'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '劳动争议纠纷答辩状.docx', id, '/templates/labor/defense.docx', TRUE FROM p UNION ALL
+SELECT '劳动争议纠纷答辩状实例.docx', id, '/templates/labor/defense_example.docx', FALSE FROM p UNION ALL
+SELECT '劳动争议纠纷起诉状.docx', id, '/templates/labor/complaint.docx', TRUE FROM p UNION ALL
+SELECT '劳动争议纠纷起诉状实例.docx', id, '/templates/labor/complaint_example.docx', FALSE FROM p;
+
+-- 机动车交通事故责任纠纷
+WITH p AS (SELECT id FROM document_template WHERE name = '机动车交通事故责任纠纷' AND p_id = (SELECT id FROM document_template WHERE name = '民商事'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '机动车交通事故责任纠纷答辩状.docx', id, '/templates/traffic/defense.docx', TRUE FROM p UNION ALL
+SELECT '机动车交通事故责任纠纷答辩状实例.docx', id, '/templates/traffic/defense_example.docx', FALSE FROM p UNION ALL
+SELECT '机动车交通事故责任纠纷起诉状.docx', id, '/templates/traffic/complaint.docx', TRUE FROM p UNION ALL
+SELECT '机动车交通事故责任纠纷起诉状实例.docx', id, '/templates/traffic/complaint_example.docx', FALSE FROM p;
+
+-- 银行信用卡纠纷
+WITH p AS (SELECT id FROM document_template WHERE name = '银行信用卡纠纷' AND p_id = (SELECT id FROM document_template WHERE name = '民商事'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '银行信用卡纠纷答辩状.docx', id, '/templates/credit/defense.docx', TRUE FROM p UNION ALL
+SELECT '银行信用卡纠纷答辩状实例.docx', id, '/templates/credit/defense_example.docx', FALSE FROM p UNION ALL
+SELECT '银行信用卡纠纷起诉状.docx', id, '/templates/credit/complaint.docx', TRUE FROM p UNION ALL
+SELECT '银行信用卡纠纷起诉状实例.docx', id, '/templates/credit/complaint_example.docx', FALSE FROM p;
+
+-- 物业服务合同纠纷
+WITH p AS (SELECT id FROM document_template WHERE name = '物业服务合同纠纷' AND p_id = (SELECT id FROM document_template WHERE name = '民商事'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '物业服务合同纠纷答辩状.docx', id, '/templates/property/defense.docx', TRUE FROM p UNION ALL
+SELECT '物业服务合同纠纷答辩状实例.docx', id, '/templates/property/defense_example.docx', FALSE FROM p UNION ALL
+SELECT '物业服务合同纠纷起诉状.docx', id, '/templates/property/complaint.docx', TRUE FROM p UNION ALL
+SELECT '物业服务合同纠纷起诉状实例.docx', id, '/templates/property/complaint_example.docx', FALSE FROM p;
+
+-- 财产损失保险合同纠纷
+WITH p AS (SELECT id FROM document_template WHERE name = '财产损失保险合同纠纷' AND p_id = (SELECT id FROM document_template WHERE name = '民商事'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '财产损失保险合同纠纷答辩状.docx', id, '/templates/property_ins/defense.docx', TRUE FROM p UNION ALL
+SELECT '财产损失保险合同纠纷答辩状实例.docx', id, '/templates/property_ins/defense_example.docx', FALSE FROM p UNION ALL
+SELECT '财产损失保险合同纠纷起诉状.docx', id, '/templates/property_ins/complaint.docx', TRUE FROM p UNION ALL
+SELECT '财产损失保险合同纠纷起诉状实例.docx', id, '/templates/property_ins/complaint_example.docx', FALSE FROM p;
+
+-- 证券虚假陈述责任纠纷
+WITH p AS (SELECT id FROM document_template WHERE name = '证券虚假陈述责任纠纷' AND p_id = (SELECT id FROM document_template WHERE name = '民商事'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '证券虚假陈述责任纠纷答辩状.docx', id, '/templates/securities/defense.docx', TRUE FROM p UNION ALL
+SELECT '证券虚假陈述责任纠纷答辩状实例.docx', id, '/templates/securities/defense_example.docx', FALSE FROM p UNION ALL
+SELECT '证券虚假陈述责任纠纷起诉状.docx', id, '/templates/securities/complaint.docx', TRUE FROM p UNION ALL
+SELECT '证券虚假陈述责任纠纷起诉状实例.docx', id, '/templates/securities/complaint_example.docx', FALSE FROM p;
+
+-- 保证保险合同纠纷
+WITH p AS (SELECT id FROM document_template WHERE name = '保证保险合同纠纷' AND p_id = (SELECT id FROM document_template WHERE name = '民商事'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '保证保险合同纠纷答辩状.docx', id, '/templates/guarantee_ins/defense.docx', TRUE FROM p UNION ALL
+SELECT '保证保险合同纠纷答辩状实例.docx', id, '/templates/guarantee_ins/defense_example.docx', FALSE FROM p UNION ALL
+SELECT '保证保险合同纠纷起诉状.docx', id, '/templates/guarantee_ins/complaint.docx', TRUE FROM p UNION ALL
+SELECT '保证保险合同纠纷起诉状实例.docx', id, '/templates/guarantee_ins/complaint_example.docx', FALSE FROM p;
+
+-- 融资租赁合同纠纷
+WITH p AS (SELECT id FROM document_template WHERE name = '融资租赁合同纠纷' AND p_id = (SELECT id FROM document_template WHERE name = '民商事'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '融资租赁合同纠纷答辩状.docx', id, '/templates/lease/defense.docx', TRUE FROM p UNION ALL
+SELECT '融资租赁合同纠纷答辩状实例.docx', id, '/templates/lease/defense_example.docx', FALSE FROM p UNION ALL
+SELECT '融资租赁合同纠纷起诉状.docx', id, '/templates/lease/complaint.docx', TRUE FROM p UNION ALL
+SELECT '融资租赁合同纠纷起诉状实例.docx', id, '/templates/lease/complaint_example.docx', FALSE FROM p;
+
+-- 房屋买卖合同纠纷
+WITH p AS (SELECT id FROM document_template WHERE name = '房屋买卖合同纠纷' AND p_id = (SELECT id FROM document_template WHERE name = '民商事'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '房屋买卖合同纠纷答辩状.docx', id, '/templates/house_sale/defense.docx', TRUE FROM p UNION ALL
+SELECT '房屋买卖合同纠纷答辩状实例.docx', id, '/templates/house_sale/defense_example.docx', FALSE FROM p UNION ALL
+SELECT '房屋买卖合同纠纷起诉状.docx', id, '/templates/house_sale/complaint.docx', TRUE FROM p UNION ALL
+SELECT '房屋买卖合同纠纷起诉状实例.docx', id, '/templates/house_sale/complaint_example.docx', FALSE FROM p;
+
+-- 房屋租赁合同纠纷
+WITH p AS (SELECT id FROM document_template WHERE name = '房屋租赁合同纠纷' AND p_id = (SELECT id FROM document_template WHERE name = '民商事'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '房屋租赁合同纠纷答辩状.docx', id, '/templates/house_lease/defense.docx', TRUE FROM p UNION ALL
+SELECT '房屋租赁合同纠纷答辩状实例.docx', id, '/templates/house_lease/defense_example.docx', FALSE FROM p UNION ALL
+SELECT '房屋租赁合同纠纷起诉状.docx', id, '/templates/house_lease/complaint.docx', TRUE FROM p UNION ALL
+SELECT '房屋租赁合同纠纷起诉状实例.docx', id, '/templates/house_lease/complaint_example.docx', FALSE FROM p;
+
+-- 建设工程施工合同纠纷
+WITH p AS (SELECT id FROM document_template WHERE name = '建设工程施工合同纠纷' AND p_id = (SELECT id FROM document_template WHERE name = '民商事'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '建设工程施工合同纠纷答辩状.docx', id, '/templates/construction/defense.docx', TRUE FROM p UNION ALL
+SELECT '建设工程施工合同纠纷答辩状实例.docx', id, '/templates/construction/defense_example.docx', FALSE FROM p UNION ALL
+SELECT '建设工程施工合同纠纷起诉状.docx', id, '/templates/construction/complaint.docx', TRUE FROM p UNION ALL
+SELECT '建设工程施工合同纠纷起诉状实例.docx', id, '/templates/construction/complaint_example.docx', FALSE FROM p;
+
+-- 人身保险合同纠纷
+WITH p AS (SELECT id FROM document_template WHERE name = '人身保险合同纠纷' AND p_id = (SELECT id FROM document_template WHERE name = '民商事'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '人身保险合同纠纷答辩状.docx', id, '/templates/life_ins/defense.docx', TRUE FROM p UNION ALL
+SELECT '人身保险合同纠纷答辩状实例.docx', id, '/templates/life_ins/defense_example.docx', FALSE FROM p UNION ALL
+SELECT '人身保险合同纠纷起诉状.docx', id, '/templates/life_ins/complaint.docx', TRUE FROM p UNION ALL
+SELECT '人身保险合同纠纷起诉状实例.docx', id, '/templates/life_ins/complaint_example.docx', FALSE FROM p;
+
+-- 责任保险合同纠纷
+WITH p AS (SELECT id FROM document_template WHERE name = '责任保险合同纠纷' AND p_id = (SELECT id FROM document_template WHERE name = '民商事'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '责任保险合同纠纷答辩状.docx', id, '/templates/liability_ins/defense.docx', TRUE FROM p UNION ALL
+SELECT '责任保险合同纠纷答辩状实例.docx', id, '/templates/liability_ins/defense_example.docx', FALSE FROM p UNION ALL
+SELECT '责任保险合同纠纷起诉状.docx', id, '/templates/liability_ins/complaint.docx', TRUE FROM p UNION ALL
+SELECT '责任保险合同纠纷起诉状实例.docx', id, '/templates/liability_ins/complaint_example.docx', FALSE FROM p;
+
+-- ★★★ 执行（9 项 × 2 = 18 条）★★★
+WITH exec_items AS (
+    SELECT name FROM (VALUES 
+        ('强制执行申请书'),
+        ('暂时解除乘坐飞机、高铁限制措施申请书'),
+        ('参与分配申请书'),
+        ('执行担保申请书'),
+        ('确认优先购买权申请书'),
+        ('执行异议申请书'),
+        ('执行复议申请书'),
+        ('执行监督申请书'),
+        ('申请不予执行仲裁裁决、调解书或公证债权文书申请书')
+    ) AS v(name)
+),
+parents AS (
+    SELECT ei.name, dt.id AS p_id
+    FROM exec_items ei
+    JOIN document_template dt_parent ON dt_parent.name = '执行'
+    JOIN document_template dt ON dt.p_id = dt_parent.id AND dt.name = ei.name
+)
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT p.name || '.docx', p.p_id, '/templates/exec/' || replace(p.name, ' ', '_') || '.docx', TRUE FROM parents p
+UNION ALL
+SELECT p.name || '实例.docx', p.p_id, '/templates/exec/' || replace(p.name, ' ', '_') || '_example.docx', FALSE FROM parents p;
+
+-- ★★★ 普通行政（12 项 × 4 = 48 条）★★★
+-- 行政处罚
+WITH p AS (SELECT id FROM document_template WHERE name = '行政处罚' AND p_id = (SELECT id FROM document_template WHERE name = '普通行政'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '行政处罚行政起诉状.docx', id, '/templates/admin_penalty/complaint.docx', TRUE FROM p UNION ALL
+SELECT '行政处罚行政起诉状实例.docx', id, '/templates/admin_penalty/complaint_example.docx', FALSE FROM p UNION ALL
+SELECT '行政处罚行政答辩状.docx', id, '/templates/admin_penalty/defense.docx', TRUE FROM p UNION ALL
+SELECT '行政处罚行政答辩状实例.docx', id, '/templates/admin_penalty/defense_example.docx', FALSE FROM p;
+
+-- 行政强制执行
+WITH p AS (SELECT id FROM document_template WHERE name = '行政强制执行' AND p_id = (SELECT id FROM document_template WHERE name = '普通行政'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '行政强制执行行政起诉状.docx', id, '/templates/admin_force/complaint.docx', TRUE FROM p UNION ALL
+SELECT '行政强制执行行政起诉状实例.docx', id, '/templates/admin_force/complaint_example.docx', FALSE FROM p UNION ALL
+SELECT '行政强制执行行政答辩状.docx', id, '/templates/admin_force/defense.docx', TRUE FROM p UNION ALL
+SELECT '行政强制执行行政答辩状实例.docx', id, '/templates/admin_force/defense_example.docx', FALSE FROM p;
+
+-- 行政许可
+WITH p AS (SELECT id FROM document_template WHERE name = '行政许可' AND p_id = (SELECT id FROM document_template WHERE name = '普通行政'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '行政许可行政起诉状.docx', id, '/templates/admin_permit/complaint.docx', TRUE FROM p UNION ALL
+SELECT '行政许可行政起诉状实例.docx', id, '/templates/admin_permit/complaint_example.docx', FALSE FROM p UNION ALL
+SELECT '行政许可行政答辩状.docx', id, '/templates/admin_permit/defense.docx', TRUE FROM p UNION ALL
+SELECT '行政许可行政答辩状实例.docx', id, '/templates/admin_permit/defense_example.docx', FALSE FROM p;
+
+-- 国有土地上房屋征收决定
+WITH p AS (SELECT id FROM document_template WHERE name = '国有土地上房屋征收决定' AND p_id = (SELECT id FROM document_template WHERE name = '普通行政'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '房屋征收行政起诉状.docx', id, '/templates/admin_expropriation/complaint.docx', TRUE FROM p UNION ALL
+SELECT '房屋征收行政起诉状实例.docx', id, '/templates/admin_expropriation/complaint_example.docx', FALSE FROM p UNION ALL
+SELECT '房屋征收行政答辩状.docx', id, '/templates/admin_expropriation/defense.docx', TRUE FROM p UNION ALL
+SELECT '房屋征收行政答辩状实例.docx', id, '/templates/admin_expropriation/defense_example.docx', FALSE FROM p;
+
+-- 工伤保险资格或者待遇认定
+WITH p AS (SELECT id FROM document_template WHERE name = '工伤保险资格或者待遇认定' AND p_id = (SELECT id FROM document_template WHERE name = '普通行政'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '工伤认定行政起诉状.docx', id, '/templates/admin_injury/complaint.docx', TRUE FROM p UNION ALL
+SELECT '工伤认定行政起诉状实例.docx', id, '/templates/admin_injury/complaint_example.docx', FALSE FROM p UNION ALL
+SELECT '工伤认定行政答辩状.docx', id, '/templates/admin_injury/defense.docx', TRUE FROM p UNION ALL
+SELECT '工伤认定行政答辩状实例.docx', id, '/templates/admin_injury/defense_example.docx', FALSE FROM p;
+
+-- 政府信息公开
+WITH p AS (SELECT id FROM document_template WHERE name = '政府信息公开' AND p_id = (SELECT id FROM document_template WHERE name = '普通行政'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '政府信息公开行政起诉状.docx', id, '/templates/admin_info/complaint.docx', TRUE FROM p UNION ALL
+SELECT '政府信息公开行政起诉状实例.docx', id, '/templates/admin_info/complaint_example.docx', FALSE FROM p UNION ALL
+SELECT '政府信息公开行政答辩状.docx', id, '/templates/admin_info/defense.docx', TRUE FROM p UNION ALL
+SELECT '政府信息公开行政答辩状实例.docx', id, '/templates/admin_info/defense_example.docx', FALSE FROM p;
+
+-- 行政复议
+WITH p AS (SELECT id FROM document_template WHERE name = '行政复议' AND p_id = (SELECT id FROM document_template WHERE name = '普通行政'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '行政复议申请书.docx', id, '/templates/admin_review/apply.docx', TRUE FROM p UNION ALL
+SELECT '行政复议申请书实例.docx', id, '/templates/admin_review/apply_example.docx', FALSE FROM p UNION ALL
+SELECT '行政复议答复书.docx', id, '/templates/admin_review/reply.docx', TRUE FROM p UNION ALL
+SELECT '行政复议答复书实例.docx', id, '/templates/admin_review/reply_example.docx', FALSE FROM p;
+
+-- 行政协议
+WITH p AS (SELECT id FROM document_template WHERE name = '行政协议' AND p_id = (SELECT id FROM document_template WHERE name = '普通行政'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '行政协议纠纷行政起诉状.docx', id, '/templates/admin_agreement/complaint.docx', TRUE FROM p UNION ALL
+SELECT '行政协议纠纷行政起诉状实例.docx', id, '/templates/admin_agreement/complaint_example.docx', FALSE FROM p UNION ALL
+SELECT '行政协议纠纷行政答辩状.docx', id, '/templates/admin_agreement/defense.docx', TRUE FROM p UNION ALL
+SELECT '行政协议纠纷行政答辩状实例.docx', id, '/templates/admin_agreement/defense_example.docx', FALSE FROM p;
+
+-- 行政补偿
+WITH p AS (SELECT id FROM document_template WHERE name = '行政补偿' AND p_id = (SELECT id FROM document_template WHERE name = '普通行政'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '行政补偿行政起诉状.docx', id, '/templates/admin_comp/complaint.docx', TRUE FROM p UNION ALL
+SELECT '行政补偿行政起诉状实例.docx', id, '/templates/admin_comp/complaint_example.docx', FALSE FROM p UNION ALL
+SELECT '行政补偿行政答辩状.docx', id, '/templates/admin_comp/defense.docx', TRUE FROM p UNION ALL
+SELECT '行政补偿行政答辩状实例.docx', id, '/templates/admin_comp/defense_example.docx', FALSE FROM p;
+
+-- 行政赔偿
+WITH p AS (SELECT id FROM document_template WHERE name = '行政赔偿' AND p_id = (SELECT id FROM document_template WHERE name = '普通行政'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '行政赔偿行政起诉状.docx', id, '/templates/admin_compensate/complaint.docx', TRUE FROM p UNION ALL
+SELECT '行政赔偿行政起诉状实例.docx', id, '/templates/admin_compensate/complaint_example.docx', FALSE FROM p UNION ALL
+SELECT '行政赔偿行政答辩状.docx', id, '/templates/admin_compensate/defense.docx', TRUE FROM p UNION ALL
+SELECT '行政赔偿行政答辩状实例.docx', id, '/templates/admin_compensate/defense_example.docx', FALSE FROM p;
+
+-- 不履行法定职责
+WITH p AS (SELECT id FROM document_template WHERE name = '不履行法定职责' AND p_id = (SELECT id FROM document_template WHERE name = '普通行政'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '不履行法定职责行政起诉状.docx', id, '/templates/admin_duty/complaint.docx', TRUE FROM p UNION ALL
+SELECT '不履行法定职责行政起诉状实例.docx', id, '/templates/admin_duty/complaint_example.docx', FALSE FROM p UNION ALL
+SELECT '不履行法定职责行政答辩状.docx', id, '/templates/admin_duty/defense.docx', TRUE FROM p UNION ALL
+SELECT '不履行法定职责行政答辩状实例.docx', id, '/templates/admin_duty/defense_example.docx', FALSE FROM p;
+
+-- 先补：2级节点「行政答辩状」
+INSERT INTO document_template (name, p_id, is_template)
+SELECT '行政答辩状', id, FALSE
+FROM document_template 
+WHERE name = '普通行政';
+
+-- 再插：3级文书（挂「行政答辩状」下）
+WITH p AS (
+    SELECT id 
+    FROM document_template 
+    WHERE name = '行政答辩状' 
+      AND p_id = (SELECT id FROM document_template WHERE name = '普通行政')
+)
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '行政答辩状.docx', id, '/templates/admin/general_defense.docx', TRUE FROM p
+UNION ALL
+SELECT '行政答辩状实例.docx', id, '/templates/admin/general_defense_example.docx', FALSE FROM p;
+
+-- ★★★ 刑事自诉（4 项 × 4 = 16 条）★★★
+-- 侮辱案
+WITH p AS (SELECT id FROM document_template WHERE name = '侮辱案' AND p_id = (SELECT id FROM document_template WHERE name = '刑事自诉'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '侮辱案刑事自诉状.docx', id, '/templates/criminal/insult_complaint.docx', TRUE FROM p UNION ALL
+SELECT '侮辱案刑事自诉状实例.docx', id, '/templates/criminal/insult_complaint_example.docx', FALSE FROM p UNION ALL
+SELECT '侮辱案刑事答辩状.docx', id, '/templates/criminal/insult_defense.docx', TRUE FROM p UNION ALL
+SELECT '侮辱案刑事答辩状实例.docx', id, '/templates/criminal/insult_defense_example.docx', FALSE FROM p;
+
+-- 诽谤案
+WITH p AS (SELECT id FROM document_template WHERE name = '诽谤案' AND p_id = (SELECT id FROM document_template WHERE name = '刑事自诉'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '诽谤案刑事自诉状.docx', id, '/templates/criminal/defamation_complaint.docx', TRUE FROM p UNION ALL
+SELECT '诽谤案刑事自诉状实例.docx', id, '/templates/criminal/defamation_complaint_example.docx', FALSE FROM p UNION ALL
+SELECT '诽谤案刑事答辩状.docx', id, '/templates/criminal/defamation_defense.docx', TRUE FROM p UNION ALL
+SELECT '诽谤案刑事答辩状实例.docx', id, '/templates/criminal/defamation_defense_example.docx', FALSE FROM p;
+
+-- 重婚案
+WITH p AS (SELECT id FROM document_template WHERE name = '重婚案' AND p_id = (SELECT id FROM document_template WHERE name = '刑事自诉'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '重婚案刑事自诉状.docx', id, '/templates/criminal/bigamy_complaint.docx', TRUE FROM p UNION ALL
+SELECT '重婚案刑事自诉状实例.docx', id, '/templates/criminal/bigamy_complaint_example.docx', FALSE FROM p UNION ALL
+SELECT '重婚案刑事答辩状.docx', id, '/templates/criminal/bigamy_defense.docx', TRUE FROM p UNION ALL
+SELECT '重婚案刑事答辩状实例.docx', id, '/templates/criminal/bigamy_defense_example.docx', FALSE FROM p;
+
+-- 拒不执行判决
+WITH p AS (SELECT id FROM document_template WHERE name = '拒不执行判决' AND p_id = (SELECT id FROM document_template WHERE name = '刑事自诉'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '拒不执行判决刑事自诉状.docx', id, '/templates/criminal/refuse_judgment_complaint.docx', TRUE FROM p UNION ALL
+SELECT '拒不执行判决刑事自诉状实例.docx', id, '/templates/criminal/refuse_judgment_complaint_example.docx', FALSE FROM p UNION ALL
+SELECT '拒不执行判决刑事答辩状.docx', id, '/templates/criminal/refuse_judgment_defense.docx', TRUE FROM p UNION ALL
+SELECT '拒不执行判决刑事答辩状实例.docx', id, '/templates/criminal/refuse_judgment_defense_example.docx', FALSE FROM p;
+
+-- ★★★ 知识产权民事（9 项 × 4 = 36 条）★★★
+
+-- 侵害商标权纠纷
+WITH p AS (SELECT id FROM document_template WHERE name = '侵害商标权纠纷' AND p_id = (SELECT id FROM document_template WHERE name = '知识产权民事'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '侵害商标权纠纷起诉状.docx', id, '/templates/ip_tm/complaint.docx', TRUE FROM p UNION ALL
+SELECT '侵害商标权纠纷起诉状实例.docx', id, '/templates/ip_tm/complaint_example.docx', FALSE FROM p UNION ALL
+SELECT '侵害商标权纠纷答辩状.docx', id, '/templates/ip_tm/defense.docx', TRUE FROM p UNION ALL
+SELECT '侵害商标权纠纷答辩状实例.docx', id, '/templates/ip_tm/defense_example.docx', FALSE FROM p;
+
+-- 侵害发明专利权纠纷
+WITH p AS (SELECT id FROM document_template WHERE name = '侵害发明专利权纠纷' AND p_id = (SELECT id FROM document_template WHERE name = '知识产权民事'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '侵害发明专利权纠纷起诉状.docx', id, '/templates/ip_patent/complaint.docx', TRUE FROM p UNION ALL
+SELECT '侵害发明专利权纠纷起诉状实例.docx', id, '/templates/ip_patent/complaint_example.docx', FALSE FROM p UNION ALL
+SELECT '侵害发明专利权纠纷答辩状.docx', id, '/templates/ip_patent/defense.docx', TRUE FROM p UNION ALL
+SELECT '侵害发明专利权纠纷答辩状实例.docx', id, '/templates/ip_patent/defense_example.docx', FALSE FROM p;
+
+-- 侵害外观设计专利权纠纷
+WITH p AS (SELECT id FROM document_template WHERE name = '侵害外观设计专利权纠纷' AND p_id = (SELECT id FROM document_template WHERE name = '知识产权民事'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '侵害外观设计专利权纠纷起诉状.docx', id, '/templates/ip_design/complaint.docx', TRUE FROM p UNION ALL
+SELECT '侵害外观设计专利权纠纷起诉状实例.docx', id, '/templates/ip_design/complaint_example.docx', FALSE FROM p UNION ALL
+SELECT '侵害外观设计专利权纠纷答辩状.docx', id, '/templates/ip_design/defense.docx', TRUE FROM p UNION ALL
+SELECT '侵害外观设计专利权纠纷答辩状实例.docx', id, '/templates/ip_design/defense_example.docx', FALSE FROM p;
+
+-- 侵害植物新品种权纠纷
+WITH p AS (SELECT id FROM document_template WHERE name = '侵害植物新品种权纠纷' AND p_id = (SELECT id FROM document_template WHERE name = '知识产权民事'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '侵害植物新品种权纠纷起诉状.docx', id, '/templates/ip_plant/complaint.docx', TRUE FROM p UNION ALL
+SELECT '侵害植物新品种权纠纷起诉状实例.docx', id, '/templates/ip_plant/complaint_example.docx', FALSE FROM p UNION ALL
+SELECT '侵害植物新品种权纠纷答辩状.docx', id, '/templates/ip_plant/defense.docx', TRUE FROM p UNION ALL
+SELECT '侵害植物新品种权纠纷答辩状实例.docx', id, '/templates/ip_plant/defense_example.docx', FALSE FROM p;
+
+-- 侵害著作权及邻接权纠纷
+WITH p AS (SELECT id FROM document_template WHERE name = '侵害著作权及邻接权纠纷' AND p_id = (SELECT id FROM document_template WHERE name = '知识产权民事'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '侵害著作权纠纷起诉状.docx', id, '/templates/ip_copyright/complaint.docx', TRUE FROM p UNION ALL
+SELECT '侵害著作权纠纷起诉状实例.docx', id, '/templates/ip_copyright/complaint_example.docx', FALSE FROM p UNION ALL
+SELECT '侵害著作权纠纷答辩状.docx', id, '/templates/ip_copyright/defense.docx', TRUE FROM p UNION ALL
+SELECT '侵害著作权纠纷答辩状实例.docx', id, '/templates/ip_copyright/defense_example.docx', FALSE FROM p;
+
+-- 技术合同纠纷
+WITH p AS (SELECT id FROM document_template WHERE name = '技术合同纠纷' AND p_id = (SELECT id FROM document_template WHERE name = '知识产权民事'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '技术合同纠纷起诉状.docx', id, '/templates/ip_tech/complaint.docx', TRUE FROM p UNION ALL
+SELECT '技术合同纠纷起诉状实例.docx', id, '/templates/ip_tech/complaint_example.docx', FALSE FROM p UNION ALL
+SELECT '技术合同纠纷答辩状.docx', id, '/templates/ip_tech/defense.docx', TRUE FROM p UNION ALL
+SELECT '技术合同纠纷答辩状实例.docx', id, '/templates/ip_tech/defense_example.docx', FALSE FROM p;
+
+-- 不正当竞争纠纷
+WITH p AS (SELECT id FROM document_template WHERE name = '不正当竞争纠纷' AND p_id = (SELECT id FROM document_template WHERE name = '知识产权民事'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '不正当竞争纠纷起诉状.docx', id, '/templates/ip_unfair/complaint.docx', TRUE FROM p UNION ALL
+SELECT '不正当竞争纠纷起诉状实例.docx', id, '/templates/ip_unfair/complaint_example.docx', FALSE FROM p UNION ALL
+SELECT '不正当竞争纠纷答辩状.docx', id, '/templates/ip_unfair/defense.docx', TRUE FROM p UNION ALL
+SELECT '不正当竞争纠纷答辩状实例.docx', id, '/templates/ip_unfair/defense_example.docx', FALSE FROM p;
+
+-- 垄断纠纷民事
+WITH p AS (SELECT id FROM document_template WHERE name = '垄断纠纷民事' AND p_id = (SELECT id FROM document_template WHERE name = '知识产权民事'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '垄断纠纷民事起诉状.docx', id, '/templates/ip_monopoly_civil/complaint.docx', TRUE FROM p UNION ALL
+SELECT '垄断纠纷民事起诉状实例.docx', id, '/templates/ip_monopoly_civil/complaint_example.docx', FALSE FROM p UNION ALL
+SELECT '垄断纠纷民事答辩状.docx', id, '/templates/ip_monopoly_civil/defense.docx', TRUE FROM p UNION ALL
+SELECT '垄断纠纷民事答辩状实例.docx', id, '/templates/ip_monopoly_civil/defense_example.docx', FALSE FROM p;
+
+-- 侵害商业秘密纠纷
+WITH p AS (SELECT id FROM document_template WHERE name = '侵害商业秘密纠纷' AND p_id = (SELECT id FROM document_template WHERE name = '知识产权民事'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '侵害商业秘密纠纷起诉状.docx', id, '/templates/ip_secret/complaint.docx', TRUE FROM p UNION ALL
+SELECT '侵害商业秘密纠纷起诉状实例.docx', id, '/templates/ip_secret/complaint_example.docx', FALSE FROM p UNION ALL
+SELECT '侵害商业秘密纠纷答辩状.docx', id, '/templates/ip_secret/defense.docx', TRUE FROM p UNION ALL
+SELECT '侵害商业秘密纠纷答辩状实例.docx', id, '/templates/ip_secret/defense_example.docx', FALSE FROM p;
+
+-- ★★★ 知识产权行政（6 项 × 4 = 24 条）★★★
+
+-- 商标申请驳回复审纠纷
+WITH p AS (SELECT id FROM document_template WHERE name = '商标申请驳回复审纠纷' AND p_id = (SELECT id FROM document_template WHERE name = '知识产权行政'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '商标申请驳回复审纠纷起诉状.docx', id, '/templates/ip_admin/tm_reject_apply.docx', TRUE FROM p UNION ALL
+SELECT '商标申请驳回复审纠纷起诉状实例.docx', id, '/templates/ip_admin/tm_reject_apply_example.docx', FALSE FROM p UNION ALL
+SELECT '商标申请驳回复审纠纷答辩状.docx', id, '/templates/ip_admin/tm_reject_complaint.docx', TRUE FROM p UNION ALL
+SELECT '商标申请驳回复审纠纷答辩状实例.docx', id, '/templates/ip_admin/tm_reject_complaint_example.docx', FALSE FROM p;
+
+-- 商标撤销复审行政纠纷
+WITH p AS (SELECT id FROM document_template WHERE name = '商标撤销复审行政纠纷' AND p_id = (SELECT id FROM document_template WHERE name = '知识产权行政'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '商标撤销复审行政纠纷起诉状.docx', id, '/templates/ip_admin/tm_revoke_apply.docx', TRUE FROM p UNION ALL
+SELECT '商标撤销复审行政纠纷起诉状实例.docx', id, '/templates/ip_admin/tm_revoke_apply_example.docx', FALSE FROM p UNION ALL
+SELECT '第三人意见陈述书(商标撤销复审行政纠纷).docx', id, '/templates/ip_admin/tm_revoke_complaint.docx', TRUE FROM p UNION ALL
+SELECT '第三人意见陈述书(商标撤销复审行政纠纷)实例.docx', id, '/templates/ip_admin/tm_revoke_complaint_example.docx', FALSE FROM p;
+
+-- 商标无效行政纠纷
+WITH p AS (SELECT id FROM document_template WHERE name = '商标无效行政纠纷' AND p_id = (SELECT id FROM document_template WHERE name = '知识产权行政'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '商标无效行政纠纷起诉状.docx', id, '/templates/ip_admin/tm_invalid_request.docx', TRUE FROM p UNION ALL
+SELECT '商标无效行政纠纷起诉状实例.docx', id, '/templates/ip_admin/tm_invalid_request_example.docx', FALSE FROM p UNION ALL
+SELECT '第三人意见陈述书(商标无效行政纠纷).docx', id, '/templates/ip_admin/tm_invalid_complaint.docx', TRUE FROM p UNION ALL
+SELECT '第三人意见陈述书(商标无效行政纠纷)实例.docx', id, '/templates/ip_admin/tm_invalid_complaint_example.docx', FALSE FROM p;
+
+-- 专利申请驳回复审行政纠纷
+WITH p AS (SELECT id FROM document_template WHERE name = '专利申请驳回复审行政纠纷' AND p_id = (SELECT id FROM document_template WHERE name = '知识产权行政'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '专利申请驳回复审行政纠纷起诉状.docx', id, '/templates/ip_admin/patent_reject_request.docx', TRUE FROM p UNION ALL
+SELECT '专利申请驳回复审行政纠纷起诉状实例.docx', id, '/templates/ip_admin/patent_reject_request_example.docx', FALSE FROM p ;
+
+-- 专利无效行政纠纷
+WITH p AS (SELECT id FROM document_template WHERE name = '专利无效行政纠纷' AND p_id = (SELECT id FROM document_template WHERE name = '知识产权行政'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '专利无效行政纠纷起诉状.docx', id, '/templates/ip_admin/patent_invalid_request.docx', TRUE FROM p UNION ALL
+SELECT '专利无效行政纠纷起诉状实例.docx', id, '/templates/ip_admin/patent_invalid_request_example.docx', FALSE FROM p UNION ALL
+SELECT '第三人意见陈述书(专利无效行政纠纷).docx', id, '/templates/ip_admin/patent_invalid_complaint.docx', TRUE FROM p UNION ALL
+SELECT '第三人意见陈述书(专利无效行政纠纷)起诉状实例.docx', id, '/templates/ip_admin/patent_invalid_complaint_example.docx', FALSE FROM p;
+
+-- 垄断纠纷行政
+WITH p AS (SELECT id FROM document_template WHERE name = '垄断纠纷行政' AND p_id = (SELECT id FROM document_template WHERE name = '知识产权行政'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '行政垄断起诉状.docx', id, '/templates/ip_admin/monopoly_admin_complaint.docx', TRUE FROM p UNION ALL
+SELECT '行政垄断起诉状实例.docx', id, '/templates/ip_admin/monopoly_admin_complaint_example.docx', FALSE FROM p;
+
+-- ★★★ 环境资源（3 项 × 4 = 12 条）★★★
+
+-- 环境污染民事公益诉讼
+WITH p AS (SELECT id FROM document_template WHERE name = '环境污染民事公益诉讼' AND p_id = (SELECT id FROM document_template WHERE name = '环境资源'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '环境污染民事公益诉讼起诉状.docx', id, '/templates/env/pollution_complaint.docx', TRUE FROM p UNION ALL
+SELECT '环境污染民事公益诉讼起诉状实例.docx', id, '/templates/env/pollution_complaint_example.docx', FALSE FROM p UNION ALL
+SELECT '环境污染民事公益诉讼答辩状.docx', id, '/templates/env/pollution_defense.docx', TRUE FROM p UNION ALL
+SELECT '环境污染民事公益诉讼答辩状实例.docx', id, '/templates/env/pollution_defense_example.docx', FALSE FROM p;
+
+-- 生态破坏民事公益诉讼
+WITH p AS (SELECT id FROM document_template WHERE name = '生态破坏民事公益诉讼' AND p_id = (SELECT id FROM document_template WHERE name = '环境资源'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '生态破坏民事公益诉讼起诉状.docx', id, '/templates/env/eco_complaint.docx', TRUE FROM p UNION ALL
+SELECT '生态破坏民事公益诉讼起诉状实例.docx', id, '/templates/env/eco_complaint_example.docx', FALSE FROM p UNION ALL
+SELECT '生态破坏民事公益诉讼答辩状.docx', id, '/templates/env/eco_defense.docx', TRUE FROM p UNION ALL
+SELECT '生态破坏民事公益诉讼答辩状实例.docx', id, '/templates/env/eco_defense_example.docx', FALSE FROM p;
+
+-- 生态环境损害赔偿诉讼
+WITH p AS (SELECT id FROM document_template WHERE name = '生态环境损害赔偿诉讼' AND p_id = (SELECT id FROM document_template WHERE name = '环境资源'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '生态环境损害赔偿起诉状.docx', id, '/templates/env/compensate_complaint.docx', TRUE FROM p UNION ALL
+SELECT '生态环境损害赔偿起诉状实例.docx', id, '/templates/env/compensate_complaint_example.docx', FALSE FROM p UNION ALL
+SELECT '生态环境损害赔偿答辩状.docx', id, '/templates/env/compensate_defense.docx', TRUE FROM p UNION ALL
+SELECT '生态环境损害赔偿答辩状实例.docx', id, '/templates/env/compensate_defense_example.docx', FALSE FROM p;
+
+-- ★★★ 国家赔偿（4 项 × 4 = 16 条）★★★
+
+-- 违法刑事拘留赔偿
+WITH p AS (SELECT id FROM document_template WHERE name = '违法刑事拘留赔偿' AND p_id = (SELECT id FROM document_template WHERE name = '国家赔偿'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '违法刑事拘留赔偿申请书.docx', id, '/templates/state_comp/detain_apply.docx', TRUE FROM p UNION ALL
+SELECT '违法刑事拘留赔偿申请书实例.docx', id, '/templates/state_comp/detain_apply_example.docx', FALSE FROM p UNION ALL
+SELECT '违法刑事拘留赔偿答辩状.docx', id, '/templates/state_comp/detain_complaint.docx', TRUE FROM p UNION ALL
+SELECT '违法刑事拘留赔偿答辩状实例.docx', id, '/templates/state_comp/detain_complaint_example.docx', FALSE FROM p;
+
+-- 刑事改判无罪赔偿
+WITH p AS (SELECT id FROM document_template WHERE name = '刑事改判无罪赔偿' AND p_id = (SELECT id FROM document_template WHERE name = '国家赔偿'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '刑事改判无罪赔偿申请书.docx', id, '/templates/state_comp/acquit_apply.docx', TRUE FROM p UNION ALL
+SELECT '刑事改判无罪赔偿申请书实例.docx', id, '/templates/state_comp/acquit_apply_example.docx', FALSE FROM p UNION ALL
+SELECT '国家赔偿行政赔偿答辩状.docx', id, '/templates/state_comp/acquit_complaint.docx', TRUE FROM p UNION ALL
+SELECT '刑事改判无罪赔偿答辩状实例.docx', id, '/templates/state_comp/acquit_complaint_example.docx', FALSE FROM p;
+
+-- 怠于履行监管职责致伤致死赔偿
+WITH p AS (SELECT id FROM document_template WHERE name = '怠于履行监管职责致伤致死赔偿' AND p_id = (SELECT id FROM document_template WHERE name = '国家赔偿'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '怠于履行监管职责致伤致死赔偿申请书.docx', id, '/templates/state_comp/duty_apply.docx', TRUE FROM p UNION ALL
+SELECT '怠于履行监管职责致伤致死赔偿申请书实例.docx', id, '/templates/state_comp/duty_apply_example.docx', FALSE FROM p UNION ALL
+SELECT '怠于履行监管职责致伤致死赔偿答辩状.docx', id, '/templates/state_comp/duty_complaint.docx', TRUE FROM p UNION ALL
+SELECT '怠于履行监管职责致伤致死赔偿答辩状实例.docx', id, '/templates/state_comp/duty_complaint_example.docx', FALSE FROM p;
+
+-- 错误执行赔偿
+WITH p AS (SELECT id FROM document_template WHERE name = '错误执行赔偿' AND p_id = (SELECT id FROM document_template WHERE name = '国家赔偿'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '错误执行赔偿申请书.docx', id, '/templates/state_comp/exec_apply.docx', TRUE FROM p UNION ALL
+SELECT '错误执行赔偿申请书实例.docx', id, '/templates/state_comp/exec_apply_example.docx', FALSE FROM p UNION ALL
+SELECT '错误执行赔偿答辩状.docx', id, '/templates/state_comp/exec_complaint.docx', TRUE FROM p UNION ALL
+SELECT '错误执行赔偿答辩状实例.docx', id, '/templates/state_comp/exec_complaint_example.docx', FALSE FROM p;
+
+-- ★★★ 海事（4 项 × 4 = 16 条）★★★
+
+-- 船舶碰撞损害责任纠纷
+WITH p AS (SELECT id FROM document_template WHERE name = '船舶碰撞损害责任纠纷' AND p_id = (SELECT id FROM document_template WHERE name = '海事'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '船舶碰撞损害责任纠纷起诉状.docx', id, '/templates/maritime/collision_complaint.docx', TRUE FROM p UNION ALL
+SELECT '船舶碰撞损害责任纠纷起诉状实例.docx', id, '/templates/maritime/collision_complaint_example.docx', FALSE FROM p UNION ALL
+SELECT '船舶碰撞损害责任纠纷答辩状.docx', id, '/templates/maritime/collision_defense.docx', TRUE FROM p UNION ALL
+SELECT '船舶碰撞损害责任纠纷答辩状实例.docx', id, '/templates/maritime/collision_defense_example.docx', FALSE FROM p;
+
+-- 海上、通海水域人身损害责任纠纷
+WITH p AS (SELECT id FROM document_template WHERE name = '海上、通海水域人身损害责任纠纷' AND p_id = (SELECT id FROM document_template WHERE name = '海事'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '海上、通海水域人身损害责任纠纷起诉状.docx', id, '/templates/maritime/injury_complaint.docx', TRUE FROM p UNION ALL
+SELECT '海上、通海水域人身损害责任纠纷起诉状实例.docx', id, '/templates/maritime/injury_complaint_example.docx', FALSE FROM p UNION ALL
+SELECT '海上、通海水域人身损害责任纠纷答辩状.docx', id, '/templates/maritime/injury_defense.docx', TRUE FROM p UNION ALL
+SELECT '海上、通海水域人身损害责任纠纷答辩状实例.docx', id, '/templates/maritime/injury_defense_example.docx', FALSE FROM p;
+
+-- 海上、通海水域货运代理合同纠纷
+WITH p AS (SELECT id FROM document_template WHERE name = '海上、通海水域货运代理合同纠纷' AND p_id = (SELECT id FROM document_template WHERE name = '海事'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '海上、通海水域货运代理合同纠纷起诉状.docx', id, '/templates/maritime/forward_complaint.docx', TRUE FROM p UNION ALL
+SELECT '海上、通海水域货运代理合同纠纷起诉状实例.docx', id, '/templates/maritime/forward_complaint_example.docx', FALSE FROM p UNION ALL
+SELECT '海上、通海水域货运代理合同纠纷答辩状.docx', id, '/templates/maritime/forward_defense.docx', TRUE FROM p UNION ALL
+SELECT '海上、通海水域货运代理合同纠纷答辩状实例.docx', id, '/templates/maritime/forward_defense_example.docx', FALSE FROM p;
+
+-- 船员劳务合同纠纷
+WITH p AS (SELECT id FROM document_template WHERE name = '船员劳务合同纠纷' AND p_id = (SELECT id FROM document_template WHERE name = '海事'))
+INSERT INTO document_template (name, p_id, url, is_template)
+SELECT '船员劳务合同纠纷起诉状.docx', id, '/templates/maritime/crew_complaint.docx', TRUE FROM p UNION ALL
+SELECT '船员劳务合同纠纷起诉状实例.docx', id, '/templates/maritime/crew_complaint_example.docx', FALSE FROM p UNION ALL
+SELECT '船员劳务合同纠纷答辩状.docx', id, '/templates/maritime/crew_defense.docx', TRUE FROM p UNION ALL
+SELECT '船员劳务合同纠纷答辩状实例.docx', id, '/templates/maritime/crew_defense_example.docx', FALSE FROM p;
+
+
+-- ==============================================
+
+--文书模板相关
