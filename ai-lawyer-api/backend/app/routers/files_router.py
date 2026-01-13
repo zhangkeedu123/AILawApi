@@ -86,6 +86,14 @@ def _should_extract_text(upload: UploadFile) -> bool:
     return False
 
 
+def _infer_doc_type(ext: str) -> str:
+    # ONLYOFFICE documentType: word / cell / slide / pdf / diagram
+    for doc_type, exts in _DOC_TYPE_MAP.items():
+        if ext in exts:
+            return doc_type
+    return "word"
+
+
 @router.get("/", response_model=ApiResponse[Paginated[FileRead]])
 async def list_files(
     page_params: PageParams = Depends(),
@@ -307,10 +315,10 @@ async def delete_file(file_id: int, user: dict = Depends(get_current_user)):
 @router.get("/office/config/{file_id}", response_model=ApiResponse[dict])
 async def get_office_config(
     file_id: int,
-    user: dict = Depends(get_current_user),
+    user: dict = Depends(get_current_user), 
 ):
     """
-    返回 ONLYOFFICE 在线编辑器配置
+    返回 ONLYOFFICE 在线编辑器配置 
     """
 
     # 1. 查询文件，只能访问自己的文件
@@ -325,13 +333,6 @@ async def get_office_config(
 
     filename = abs_path.name
     file_ext = abs_path.suffix.replace(".", "").lower()  # pdf/docx ??
-
-    def _infer_doc_type(ext: str) -> str:
-        # ONLYOFFICE documentType: word / cell / slide / pdf / diagram
-        for doc_type, exts in _DOC_TYPE_MAP.items():
-            if ext in exts:
-                return doc_type
-        return "word"
 
     doc_type = _infer_doc_type(file_ext)
 
@@ -394,6 +395,92 @@ async def get_office_config(
         "document": {
             **base_config["document"],
             "url": file_url,   # 这里是最终 URL
+        },
+    }
+
+    token_for_onlyoffice = generate_onlyoffice_token(final_config)
+
+    final_config["token"] = token_for_onlyoffice
+    return ApiResponse(result=final_config)
+
+
+@router.get("/office/edit-config/{file_id}", response_model=ApiResponse[dict])
+async def get_office_edit_config(
+    file_id: int,
+    user: dict = Depends(get_current_user),
+):
+    """
+    ONLYOFFICE 可编辑配置，增加保存回调与编辑权限
+    """
+    obj = await files_service.get_file_by_id(file_id)
+    if not obj or int(obj["user_id"]) != int(user["id"]):
+        return ApiResponse(msg="只能选择自己创建的合同", status=False)
+
+    abs_path = files_service._safe_join_file_path(obj["doc_url"])
+    if not abs_path.exists():
+        return ApiResponse(msg="文件不存在", status=False)
+
+    filename = abs_path.name
+    file_ext = abs_path.suffix.replace(".", "").lower()
+    doc_type = _infer_doc_type(file_ext)
+
+    proxy_base = os.environ.get("ONLYOFFICE_PROXY_BASE", "http://backend:8000")
+    file_key = f"{file_id}_{int(abs_path.stat().st_mtime)}"
+
+    base_config = {
+        "document": {
+            "fileType": file_ext,
+            "title": filename,
+            "key": file_key,
+            "permissions": {
+                "edit": True,
+                "download": True,
+                "comment": True,
+                "review": False,
+            },
+        },
+        "type": "desktop",
+        "documentType": doc_type,
+        "editorConfig": {
+            "editorId": "docEditor",
+            "mode": "edit",
+            "lang": "zh-CN",
+            "callbackUrl": "",
+            "user": {
+                "id": str(user["id"]),
+                "name": user.get("username") or user.get("name") or f"user-{user['id']}",
+            },
+            "customization": {
+                "about": False,
+                "info": False,
+                "feedback": False,
+                "help": False,
+                "customer": False,
+                "chat": False,
+                "comments": True,
+                "hideRightMenu": False,
+            },
+        },
+    }
+
+    payload_for_token = {
+        "payload": base_config,
+        "exp": datetime.utcnow() + timedelta(hours=5),
+    }
+    file_token = jwt.encode(payload_for_token, ONLYOFFICE_SECRET, algorithm="HS256")
+
+    file_url = f"{proxy_base}/open/office/file-proxy/{file_id}?token={file_token}"
+    callback_url = f"{proxy_base}/open/office/save/{file_id}?token={file_token}"
+
+    final_config = {
+        **base_config,
+        "document": {
+            **base_config["document"],
+            "url": file_url,
+        },
+        "editorConfig": {
+            **base_config["editorConfig"],
+            "callbackUrl": callback_url,
         },
     }
 

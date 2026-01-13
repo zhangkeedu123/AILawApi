@@ -149,6 +149,21 @@ async def delete_file(file_id: int) -> bool:
     return await files_repo.delete(pool, file_id)
 
 
+async def overwrite_file_content(file_id: int, data: bytes) -> bool:
+    """使用新的二进制内容覆盖文件，保持路径安全"""
+    obj = await get_file_by_id(file_id)
+    if not obj:
+        return False
+    try:
+        abs_path = _safe_join_file_path(obj.get("doc_url") or "")
+        abs_path.parent.mkdir(parents=True, exist_ok=True)
+        abs_path.write_bytes(data)
+        return True
+    except Exception:
+        logger.exception("overwrite_file_content failed file_id=%s", file_id)
+        return False
+
+
 # ------------------ 存储路径与安全 ------------------
 
 def _files_root() -> Path:

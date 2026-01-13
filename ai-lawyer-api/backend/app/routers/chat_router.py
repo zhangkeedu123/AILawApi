@@ -10,7 +10,7 @@ from ..services import conversation_service, chat_service
 from ..db.db import get_pg_pool
 from ..db.repositories import package_user_repo
 from ..services import contract_review_service
-from ..services import document_service, case_service
+from ..services import document_service, case_service, document_template_service
 from ..schemas.case_schema import CaseExtractResult
 from ..schemas.legal_retrieval_schema import LegalRetrievalResult
 from ..services.content import content_generate_service, content_prompt_service
@@ -120,71 +120,58 @@ async def contract_review(
 
 
 class DocGenerateRequest(BaseModel):
-    doc_type: str
-    case_id: int = 0
-    facts: str | None = None
+    facts: str
+    template_id: int
 
 
 
-@router.post("/generate_document", response_model=ApiResponse[ChatResponse])
+@router.post("/generate_document", response_model=ApiResponse[dict])
 async def generate_document(
     payload: DocGenerateRequest,
     request: Request,
-    tasks: BackgroundTasks = None,
-) -> ApiResponse[ChatResponse]:
-    """生成法律文书：
-    - 参数：文书类型、案件ID、事实案件描述
-    - 逻辑：case_id=0 用 facts；否则查询案件信息并拼接（如有 facts 作为补充）
-    - 输出：第一行文书名称；第二行起为文书内容；不要多余内容
-    - 持久化：返回后异步写入 documents 表
-    """
+):
+    """文书生成：内部流式调用 AI 抽取结构化 JSON，渲染模板生成文档并入库，返回文书实体。"""
     user = getattr(request.state, "current_user", None)
-    user_id = int(user["id"]) if user else None
+    if not user:
+        raise HTTPException(status_code=401, detail="未登录")
 
-    case_obj = None
-    if payload.case_id and payload.case_id != 0:
-        try:
-            case_obj = await case_service.get_case_by_id(int(payload.case_id))
-        except Exception:
-            case_obj = None
-    material = chat_service.compose_case_material(case_obj, payload.facts)
-
-    # 调用 AI 生成文书（先额度校验）
     await _ensure_ai_quota_and_consume(request)
-    raw_reply = await chat_service.generate_legal_document_ai(payload.doc_type, material)
 
-    # 解析：第一行为文书名称，其余为正文
-    text = (raw_reply or "").strip()
-    # 简单去除可能的代码块包裹
-    if text.startswith("```") and text.endswith("```"):
-        text = text.strip("`\n")
-    lines = [ln.strip() for ln in text.splitlines()]
-    while lines and not lines[0]:
-        lines.pop(0)
-    doc_name = lines[0] if lines else (payload.doc_type or "文书")
-    doc_content = "\n".join(lines[1:]).strip() if len(lines) > 1 else ""
+    template = await document_template_service.get_document_template_by_id(int(payload.template_id))
+    if not template:
+        return ApiResponse(status=False,msg="文书模板不存在")
+    template_url = (template.get("url") or "").strip()
+    template_url="/files/office/借贷案例模板.docx"
+    try:
+        template_path = document_template_service.resolve_template_path(template_url)
+    except FileNotFoundError as e:
+        return ApiResponse(status=False,msg="AI 调用失败: {e}")
 
-    # 组合返回文本（严格：第一行名称，第二行起正文）
-    final_reply = doc_name + ("\n" + doc_content if doc_content else "")
+    chunks: list[str] = []
+    try:
+        async for part in chat_service.extract_document_elements_stream(payload.facts or ""):
+            chunks.append(part)
+    except Exception as e:
+        return ApiResponse(status=False,msg="AI 调用失败: {e}")
 
-    # 异步入库
-    data = {
-        "user_id": user_id or 0,
-        "doc_name": doc_name,
-        "doc_type": payload.doc_type,
-        "doc_content": doc_content,
-    }
-    if tasks is not None:
-        tasks.add_task(document_service.create_document, data)
-    else:
-        try:
-            await document_service.create_document(data)
-        except Exception:
-            # 忽略持久化错误，保证主流程返回
-            pass 
+    full_text = "".join(chunks).strip()
+    json_text = document_template_service.extract_json_from_text(full_text)
+    try:
+        ai_result = json.loads(json_text)
+    except Exception:
+        return ApiResponse(status=False,msg="AI 返回不是有效的 JSON，请重试")
 
-    return ApiResponse(result=ChatResponse(reply=final_reply, conv_id=0, title=None)) 
+    try:
+        doc_obj = await document_template_service.render_and_persist_document(
+            template_path=template_path,
+            template_info=template, 
+            ai_result=ai_result,
+            user=user,
+        )
+    except Exception as e:
+        return ApiResponse(status=False,msg=str(e))
 
+    return ApiResponse(result=doc_obj)
 
 @router.post("/legal_retrieval", response_model=ApiResponse[LegalRetrievalResult])
 async def legal_retrieval(
@@ -249,11 +236,11 @@ async def _ensure_ai_quota_and_consume(request: Request) -> None:
         raise HTTPException(status_code=401, detail="未登录")
     firm_id = user.get("firm_id")
     if not firm_id:
-        raise HTTPException(status_code=403, detail="缺少律所信息")
+        raise HTTPException(status_code=400, detail="缺少律所信息")
     pool = await get_pg_pool()
     pkg = await package_user_repo.get_active_latest_by_firm(pool, int(firm_id))
     if not pkg:
-        raise HTTPException(status_code=403, detail="套餐已到期，继续使用请联系管理员")
+        raise HTTPException(status_code=403, detail="套餐已到期，继续使用请充值")
     # 双重保险：本地校验一次额度
     day_use = int(pkg.get("day_use_num") or 0)
     day_used = int(pkg.get("day_used_num") or 0)
@@ -263,6 +250,7 @@ async def _ensure_ai_quota_and_consume(request: Request) -> None:
     ok = await package_user_repo.try_consume_one(pool, int(pkg["id"]))
     if not ok:
         raise HTTPException(status_code=403, detail="当日次数已用完")
+    
 
 
 

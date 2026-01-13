@@ -7,6 +7,76 @@ from ..schemas.case_schema import CaseExtractResult
 from ..schemas.legal_retrieval_schema import LegalRetrievalResult
 
 
+_DOCUMENT_EXTRACT_PROMPT = """你是一名法律文书结构化信息抽取助手，需要从用户提供的文本中提取民事起诉状（民间借贷纠纷）
+所需的全部要素，并输出 JSON，JSON 字段结构必须严格符合以下模板。
+
+请按如下要求从用户输入中抽取信息：
+
+【输出要求】
+1. 必须输出一个结构化 JSON（不能多字、不能解释）。
+2. 用户文本中未提及的字段必须输出空字符串 ""。
+3. 所有日期统一格式为 yyyy年MM月dd日。
+4. 金额用阿拉伯数字，不添加单位，单位另由文书模板处理。
+5. 性别只能为 "男" 或 "女"（如无法判断，则为空）。
+6. 所有布尔判断类字段用 true / false。
+7. 不要擅自生成个人敏感信息，无法确定的保持空字符串。
+8. 不要遗漏字段，字段名称必须完全一致。
+
+【JSON 字段结构】
+{
+  "原告": {
+    "姓名": "",
+    "性别": "",
+    "出生日期": "",
+    "民族": "",
+    "工作单位": "",
+    "职务": "",
+    "联系电话": "",
+    "住所地": "",
+    "经常居住地": "",
+    "证件类型": "",
+    "证件号码": ""
+  },
+  "被告": {
+    "姓名": "",
+    "性别": "",
+    "出生日期": "",
+    "民族": "",
+    "工作单位": "",
+    "职务": "",
+    "联系电话": "",
+    "住所地": "",
+    "经常居住地": "",
+    "证件类型": "",
+    "证件号码": ""
+  },
+  "借款信息": {
+    "借款本金": "",
+    "利息": "",
+    "借款开始日期": "",
+    "借款截止日期": "",
+    "利率": "",
+    "借款提供方式": "",
+    "是否到期": "",
+    "是否逾期": "",
+    "逾期天数": "",
+    "已还本金": "",
+    "已还利息": ""
+  },
+  "合同信息": {
+    "合同名称": "",
+    "合同签订日期": "",
+    "合同地点": "",
+    "合同编号": ""
+  },
+  "诉讼请求": "",
+  "事实与理由": ""
+}
+
+【最终任务】
+根据用户输入内容，抽取并填充上述 JSON，不得添加额外说明，不得输出无关文字，只输出 JSON。"""
+
+
 def _normalize_case_json(s: str) -> Dict[str, str]:
     """将模型回复规范化为仅包含目标5个键的字典，值均为字符串。"""
     try:
@@ -117,6 +187,24 @@ def _extract_json_block(s: str) -> str:
     return s
 
 
+async def extract_document_elements_stream(text: str) -> AsyncGenerator[str, None]:
+    """基于固定提示词流式抽取民间借贷纠纷起诉状所需字段。"""
+    messages = [
+        {"role": "system", "content": _DOCUMENT_EXTRACT_PROMPT},
+        {"role": "user", "content": text or ""},
+    ]
+    async for chunk in qwen_client.chat_stream(messages):
+        yield chunk
+
+
+async def extract_document_elements(text: str) -> str:
+    """汇总流式抽取结果，返回完整 JSON 字符串。"""
+    chunks: list[str] = []
+    async for part in extract_document_elements_stream(text):
+        chunks.append(part)
+    return "".join(chunks)
+
+
 async def analyze_contract_ai(text: str) -> str:
     """合同审查：根据固定系统提示词，输出严格 JSON 结构的审查结果。"""
     system_prompt = (
@@ -200,7 +288,6 @@ async def generate_legal_document_ai(doc_type: str, case_material: str) -> str:
 def compose_case_material(case: dict | None, extra_facts: str | None) -> str:
     """将案件信息与补充事实整理为给模型的材料文本。
 
-    放在 service 层，避免路由层混入业务拼装逻辑（分层）。
     """
     if not case:
         return (extra_facts or "").strip()
@@ -293,32 +380,27 @@ async def legal_retrieval_structured_v2(text: str) -> LegalRetrievalResult:
     """返回英文字段的结构化对象，直接反序列化。"""
     system_prompt = (
         "你是一名中国法律检索与分析助手。请基于用户提供的问题或案件描述，"
-        "组织输出：相关法律条文、参考案件，以及务实可操作的律师观点建议。案件内容要多，详细表述清楚，数据要多点\n\n"
+        "输出：相关法律条文、以及务实可操作的律师观点建议。详细表述清楚，数据要全面\n\n"
         "输出 JSON 格式如下（严格遵守结构与字段命名）：\n\n"
         "{\n"
+        "  \"search\":  \"\" , \n "
         "  \"laws\": [ {\"law_name\": \"\", \"article\": \"\", \"content\": \"\"} ],\n"
-        "  \"cases\": [ {\"case_name\": \"\", \"date\": \"\", \"docket_no\": \"\", \"summary\": \"\", \"judgment\": \"\"} ],\n"
         "  \"opinions\": [ {\"title\": \"\", \"advice\": \"\"} ]\n"
         "}\n\n"
         "字段含义与规则：\n"
         "- laws：法律集合\n"
-        "- law_name：法律名称（中国法律名称）\n"
+        "- law_name：法律名称\n"
         "- article：章节（第几条）\n"
-        "- content：法律内容（尽量保留原文表达）\n"
-        "- cases：相关案件集合 \n"
-        "- case_name：案件名称\n"
-        "- date：案件时间\n"
-        "- docket_no：案号\n"
-        "- summary：案情摘要，案件事实与理由尽量完整\n"
-        "- judgment：判决结果\n"
+        "- content：法律内容（原文表达）\n"
         "- opinions：律师务实观点集合\n"
         "- title：标题\n"
         "- advice：关于用户问题的相关法律案件的务实观点建议\n"
+        "- search:从用户问题中提取用于检索裁判文书的关键词，保留场景、行为、对象、争议词。5个词语以内 "
         "严格要求：只输出 JSON 本体，不要输出任何多余文字、注释或代码块标记。"
     )
     messages = [
         {"role": "system", "content": system_prompt},
-        {"role": "user", "content": text+" 的相关法律和相关案件，律师观点建议 "},
+        {"role": "user", "content": text+" 的相关法律和律师观点建议 "},
     ]
     raw = await qwen_client.chat(messages, "qwen3-max")
     raw_json = _extract_json_block(raw)
@@ -328,6 +410,6 @@ async def legal_retrieval_structured_v2(text: str) -> LegalRetrievalResult:
         data = {}
     return LegalRetrievalResult(
         laws=data.get("laws", []),
-        cases=data.get("cases", []),
+        cases=data.get("search", []),
         opinions=data.get("opinions", []),
     )
