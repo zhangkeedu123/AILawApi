@@ -39,7 +39,7 @@ services:
     ports:
       - "8080:80"
     environment:
-      - JWT_ENABLED=true
+      - JWT_ENABLED=false
       - JWT_SECRET=ZjS2mNT5nQZV1TJsIRxI3yLEm8ejnqD5
       - JWT_INBOX_ENABLED=true
       - JWT_INBOX_SECRET=ZjS2mNT5nQZV1TJsIRxI3yLEm8ejnqD5
